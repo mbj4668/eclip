@@ -204,7 +204,7 @@ parse(["-s"],
 
 We can also give the option a better name.
 
-```
+```erlang
 %% mycmd
 parse([],
       #{cmd => "mycmd",
@@ -306,7 +306,7 @@ Filename = "bar.txt"
 Alternatively, the arity can be 1, in which case it will be invoked
 as:
 
-```
+```erlang
 do_list([_ParseEnv,
          [{mycmd,#{verbose => 1}}],
          #{bar => false,foo => true},
