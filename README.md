@@ -4,7 +4,7 @@ Eclip is a command line parser for Erlang programs.  It is similar in
 functionality to Python's `click`.
 
 The erlang module is called `eclip` and is documented in
-[eclip.md](../doc/eclip.md).
+[eclip.md](doc/eclip.md).
 
 Here's an example of a simple script:
 
