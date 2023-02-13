@@ -141,7 +141,7 @@ extract_def() {
         print_with_links($0);
         if (($0 ~ "\\.$") && !($0 ~ "%")) {
             skip = 1;
-            printf("%s</code></pre>\n", $0);
+            printf("</code></pre>\n");
         }
     
         next;

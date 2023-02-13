@@ -280,10 +280,46 @@ argument can be given.
          }.
 </code></pre>
 
+### <a name="type_parse_env">parse_env()</a>
+
+<pre><code>-type <a href="#type_parse_env">parse_env()</a> :: {<a href="#type_cmd">cmd()</a>, <a href="#type_parse_opts">parse_opts()</a>}.
+</code></pre>
+
 ## Functions
+### <a name="func_parse">parse/2</a>
+
+<pre><code>-spec parse(CmdLine :: [string()],
+            CmdSpec :: <a href="#type_cmd">cmd())</a> ->
+    <span style="color:indianred">%% `done` is returned if an cmd or option callback has been called</span>
+    {done, term()}
+  | {ok, <a href="#type_parse_result">parse_result()</a>}
+  | {error, Error :: term()}
+  .
+</code></pre>
+### <a name="func_parse">parse/2</a>
+
+<pre><code>-spec parse(CmdLine :: [string()],
+            CmdSpec :: <a href="#type_cmd">cmd()</a>,
+            Options :: <a href="#type_parse_opts">parse_opts())</a> ->
+    <span style="color:indianred">%% `done` is returned if an cmd or option callback has been called</span>
+    {done, term()}
+  | {ok, <a href="#type_parse_result">parse_result()</a>}
+  | {error, Error :: term()}
+  .
+</code></pre>
+
 ### <a name="func_parse">parse/3</a>
 
-This is the parse function.
+<pre><code>-spec parse(CmdLine :: [string()],
+            CmdSpec :: <a href="#type_cmd">cmd())</a> ->
+    <span style="color:indianred">%% `done` is returned if an cmd or option callback has been called</span>
+    {done, term()}
+  | {ok, <a href="#type_parse_result">parse_result()</a>}
+  | {error, Error :: term()}
+  .
+</code></pre>
+### <a name="func_parse">parse/3</a>
+
 <pre><code>-spec parse(CmdLine :: [string()],
             CmdSpec :: <a href="#type_cmd">cmd()</a>,
             Options :: <a href="#type_parse_opts">parse_opts())</a> ->

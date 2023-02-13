@@ -159,11 +159,6 @@ with an equal sign instead of whitespace is not supported.
 
 # Examples
 
-TODO: fix all examples
-
-
-<!--
-
 ### Option with one argument
 
 The command takes one option, specified as `-l` or `--label`.  The
@@ -173,11 +168,11 @@ option requires a label (string) as argument.
 ```erlang
 %% mycmd --label foo
 parse(["--label", "foo"],
-      #{name := mycmd,
+      #{cmd => "mycmd",
         opts => [#{name => label, short => $l, long => "label",
-                  type => string}]}).
+                  type => string}]}, #{}).
 
-{mycmd, #{label => [foo]}, #{}, []}
+> {ok, {mycmd, #{label => "foo"}, #{}, []}}
 ```
 
 The default `type` is `string`, and the default `name` is the long
@@ -186,10 +181,10 @@ option as an atom, so the above can also be written as:
 ```erlang
 %% mycmd --label foo
 parse(["--label", "foo"],
-      #{name := mycmd,
+      #{cmd => "mycmd",
         opts => [#{short => $l, long => "label"}]}).
 
-{mycmd, #{label => [foo]}, #{}, []}
+> {ok, {mycmd, #{label => "foo"}, #{}, []}}
 ```
 
 ### Flag option
@@ -201,10 +196,10 @@ short option as an atom.
 ```erlang
 %% mycmd -s
 parse(["-s"],
-      #{name := mycmd,
+      #{cmd => "mycmd",
         opts => [#{short => $s, type => flag}]}).
 
-{mycmd, #{s => true}, #{}, []}
+> {ok, {mycmd, #{s => true}, #{}, []}}
 ```
 
 We can also give the option a better name.
@@ -212,21 +207,38 @@ We can also give the option a better name.
 ```
 %% mycmd
 parse([],
-      #{name :: mycmd,
+      #{cmd => "mycmd",
         opts => [#{name => silent, short => $s, type => flag}]}).
 
-{mycmd, #{silent => false}, #{}, []}
+> {ok, {mycmd, #{silent => false}, #{}, []}}
 ```
+
+### Count option
+
+The command has an option `-v` which can be given mulitple times to
+increase the verbosity.
+
+```erlang
+%% mycmd -vvv -v
+parse(["-vvv", "-v"],
+      #{cmd => "mycmd",
+        opts => [#{name => verbosity, short => $v, type => count}]}).
+
+> {ok, {mycmd, #{verbosity => 4}, #{}, []}}
+```
+
 
 ### Option with one argument, and one argument to the command
 
 ```erlang
 %% mycmd -l foo log.txt
-parse(["-l", "foo"],
-      #{opts => [#{name => label, short => $l, type => string}],
+parse(["-l", "foo", "log.txt"],
+      #{cmd => "mycmd",
+        opts => [#{name => label, short => $l, type => string}],
         args => [#{name => filename}]}).
 
-{mycmd, #{label => [foo]}, #{filename => "log.txt"}, []}.
+
+> {ok, {mycmd, #{label => "foo"}, #{filename => "log.txt"}, []}}
 ```
 ### Option with two arguments
 
@@ -238,22 +250,12 @@ instead.
 ```erlang
 %% mycmd --user joe 42
 parse(["--user", "joe", "42"],
-      #{opts => [#{name => user, long => "user",
+      #{cmd => "mycmd",
+        opts => [#{name => user, long => "user",
                    args => [#{name => name, type => string},
-                            #{name => id, type => int, nargs => '?'}]}]}).
+                            #{name => id, type => integer, nargs => '?'}]}]}).
 
-{mycmd, #{"user" => #{name => "joe", id => 42}}, #{}, []}.
-```
-
-### Option with variable number of arguments
-
-```erlang
-%% mycmd -c red green
-parse(["-c", "red", "green"],
-      #{opts => [#{name => colors, short => $c,
-                   args => [#{name => name, type => string, nargs => '+'}]}]}).
-
-{mycmd, #{colors => #{name => ["red", "green"]}}, #{}, []}.
+> {ok, {mycmd, #{user => #{id => 42, name => "joe"}}, #{}, []}
 ```
 
 ### Command with variable number of arguments
@@ -263,15 +265,17 @@ The command should take a possibly empty list of files as arguments.
 ```erlang
 %% mycmd foo.txt bar.txt
 parse(["foo.txt", "bar.txt"],
-      #{args => [#{name => filename, type => string, nargs => '*'}]}).
+      #{cmd => "mycmd",
+        args => [#{name => filename, type => string, nargs => '*'}]}).
 
-{mycmd, #{}, #{filename => ["foo.txt", "bar.txt"]}, []}.
+> {ok, {mycmd, #{}, #{filename => ["foo.txt","bar.txt"]}, []}}
 ```
 
 ## Callbacks
 
-If a callback is given, it must have arity `2 + number of options +
-number of arguments`.  For example:
+If a callback is given, it must either have arity `1` or `2 + number of options +
+number of arguments`.  For example, the `list` command below has two
+options and one argument, so the arity can be 5:
 
 ```erlang
 do_list(Ctx, Foo, Bar, Filename) ->
@@ -279,23 +283,35 @@ do_list(Ctx, Foo, Bar, Filename) ->
 
 %% mycmd -v list --foo bar.txt
 parse(["-v", "list", "--foo", "bar.txt"],
-      #{name => mycmd,
-        opts => [#{name => verbose, short => $v}],
-        cmds => [#{name => list,
-                   opts => [#{name => foo, long => "foo"},
-                            #{name => bar, long => "bar"}],
+      #{cmd => "mycmd",
+        opts => [#{name => verbosity, short => $v, type => count}],
+        cmds => [#{cmd => "list",
+                   opts => [#{long => "foo", type => boolean},
+                            #{long => "bar", type => boolean}],
                    args => [#{name => filename}],
-                   cb => fun do_list/4}]}).
+                   cb => fun do_list/5}]}).
 
-%% will be called as:
-do_list([{mycmd, #{verbose => true}}],
-        true,
-        false,
-        "bar.txt").
+do_list(ParseEnv, CmdStack, Foo, Bar, Filename) ->
+    io:format("Stack = ~p\nFoo = ~p\nBar = ~p\nFilename = ~s\n",
+              [CmdStack, Foo, Bar, Filename]).
+
+% results in:
+
+Stack = [{mycmd, #{verbosity => 1}}]
+Foo = true
+Bar = false
+Filename = "bar.txt"
 ```
 
--->
+Alternatively, the arity can be 1, in which case it will be invoked
+as:
 
+```
+do_list([_ParseEnv,
+         [{mycmd,#{verbose => 1}}],
+         #{bar => false,foo => true},
+         #{filename => "bar.txt"}]).
+```
 
 # Related work
 

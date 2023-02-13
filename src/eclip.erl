@@ -2,7 +2,7 @@
 %%%
 -module(eclip).
 
--export([parse/3]).
+-export([parse/2, parse/3]).
 -export([fmt_help/2, print_help/3]).
 
 -export([default_help_opt/0, default_version_opt/0]).
@@ -13,7 +13,7 @@
               parse_result/0,
               result_opts/0, result_args/0, result_cmd_stack/0,
               optval/0, argval/0,
-              parse_opts/0]).
+              parse_opts/0, parse_env/0]).
 
 -define(iof, io:format).
 -define(a2l, atom_to_list).
@@ -285,7 +285,16 @@ cmd_version({#{name := Cmd}, #{version := Vsn}}, _) ->
     io:format("~ts ~ts\n", [Cmd, Vsn]),
     throw({done, ok}).
 
-%% This is the parse function.
+-spec parse(CmdLine :: [string()],
+            CmdSpec :: cmd()) ->
+    %% `done` is returned if an cmd or option callback has been called
+    {done, term()}
+  | {ok, parse_result()}
+  | {error, Error :: term()}
+  .
+parse(CmdName, Cmd) ->
+    parse(CmdName, Cmd, #{}).
+
 -spec parse(CmdLine :: [string()],
             CmdSpec :: cmd(),
             Options :: parse_opts()) ->
@@ -601,7 +610,8 @@ prepare_arg(#{name := Name} = Arg0) ->
     Arg1 =
         case maps:find(type, Arg0) of
             {ok, Type} ->
-                validate_arg_type(Name, Type);
+                validate_arg_type(Name, Type),
+                Arg0;
             _ ->
                 Arg0#{type => string}
         end,
