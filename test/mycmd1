@@ -1,0 +1,37 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../ebin
+
+-mode(compile).
+
+main(Args) ->
+    MVarStyle =
+        case os:getenv("METAVARSTYLE") of
+            "brackets" -> brackets;
+            _ -> caps
+        end,
+    R = eclip:parse(Args, spec(), #{metavar_style => MVarStyle}),
+    io:format("R: ~p\n", [R]).
+
+spec() ->
+    #{opts => [#{short => $i,
+                 type => {integer, [2, {4, 6}]},
+                 help => "An integer"},
+               {group, "Other options",
+                [
+                 #{short => $x, metavar => "ID", help => "Use ID"},
+                 #{short => $d, long => "debug", name => dd,
+                   type => count}
+                ]},
+               #{long => "name", multiple => true,
+                 help => "YANG structures data models into modules and submodules.  A module can import definitions from other external modules and can include
+   definitions from submodules.  The hierarchy can be augmented,
+   allowing one module to add data nodes to the hierarchy defined in
+   another module.  This augmentation can be conditional, with new nodes
+   appearing only if certain conditions are met.
+"}],
+      cb => fun maincmd/1}.
+
+maincmd(X) ->
+    io:format("~p\n", [X]).
+

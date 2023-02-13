@@ -1,0 +1,59 @@
+[shell test]
+    !./mycmd1 --help
+"""??
+Usage: mycmd1 [OPTIONS]
+
+Options:
+  -h, --help                 Show this help and exit
+  -i   I                     An integer
+
+Other options:
+  -x   ID                    Use ID
+  -d, --debug
+
+
+      --name NAME            YANG structures data models into modules and
+                             submodules. A module can import definitions from
+                             other external modules and can include definitions
+                             from submodules. The hierarchy can be augmented,
+                             allowing one module to add data nodes to the
+                             hierarchy defined in another module. This
+                             augmentation can be conditional, with new nodes
+                             appearing only if certain conditions are met.
+R: {done,ok}
+SH-PROMPT
+"""
+
+    !env METAVARSTYLE=brackets ./mycmd1 -h
+"""??
+Usage: mycmd1 [<options>]
+
+Options:
+  -h, --help                 Show this help and exit
+  -i   <i>                   An integer
+
+Other options:
+  -x   ID                    Use ID
+  -d, --debug
+
+
+      --name <name>          YANG structures data models into modules and
+                             submodules. A module can import definitions from
+                             other external modules and can include definitions
+                             from submodules. The hierarchy can be augmented,
+                             allowing one module to add data nodes to the
+                             hierarchy defined in another module. This
+                             augmentation can be conditional, with new nodes
+                             appearing only if certain conditions are met.
+R: {done,ok}
+SH-PROMPT
+"""
+
+    !./mycmd1 -dd --debug
+    ??#{dd => 3,name => []},
+    ?SH-PROMPT
+
+    !./mycmd1 --name alice -ddi 2 --name bob
+    ??#{dd => 2,i => 2,name => ["alice","bob"]},
+    ?SH-PROMPT
+

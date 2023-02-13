@@ -1,0 +1,21 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../ebin
+
+-mode(compile).
+
+main(Args) ->
+    eclip:parse(Args, spec(), #{}).
+
+spec() ->
+    #{help => "Simple program that greets NAME for a total of COUNT times.",
+      opts => [#{long => "name", required => true,
+                 help => "The person to greet"},
+               #{long => "count", default => 1,
+                 help => "Number of greetings"}],
+      cb => fun hello/4}.
+
+hello(_, _, Name, Count) ->
+    lists:foreach(
+      fun(_) -> io:format("Hello ~s!\n", [Name]) end,
+      lists:seq(1, Count)).
