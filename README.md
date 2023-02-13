@@ -278,9 +278,6 @@ number of arguments`.  For example, the `list` command below has two
 options and one argument, so the arity can be 5:
 
 ```erlang
-do_list(Ctx, Foo, Bar, Filename) ->
-  ...
-
 %% mycmd -v list --foo bar.txt
 parse(["-v", "list", "--foo", "bar.txt"],
       #{cmd => "mycmd",
