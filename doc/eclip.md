@@ -48,7 +48,7 @@ Specifies the main command and subcommands.
           <span style="color:indianred">%% parsing all ancestor commands.</span>
           <span style="color:indianred">%% Then follows each option value, and then each argument value.</span>
           cb => fun(({<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_cmd_stack">result_cmd_stack()</a>,
-                      <a href="#type_result_opts">result_opts()</a>, <a href="#type_result_args">result_args()</a>}) -> <a href="#type_term">term())</a> |
+                      <a href="#type_result_opts">result_opts()</a>, <a href="#type_result_args">result_args()</a>}) -> term()) |
                 fun(),
 
           <span style="color:indianred">%% If `auto_help` is `false`, -h|--help isn't automatically</span>
@@ -125,7 +125,7 @@ fields.
           default => term(), <span style="color:indianred">% val is default if not given</span>
 
           <span style="color:indianred">%% Default is `name` in uppercase or in brackets (depending</span>
-          <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts())</a>.  Only used if `type`</span>
+          <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts()</a>).  Only used if `type`</span>
           <span style="color:indianred">%% is an <a href="#type_argtype">argtype()</a>.</span>
           metavar => string(),
 
@@ -136,7 +136,7 @@ fields.
           <span style="color:indianred">%% If the option is found, the callback is invoked.  The callback</span>
           <span style="color:indianred">%% can throw `{done, term()}` to stop parsing.  This is useful</span>
           <span style="color:indianred">%% e.g., to implement `--version` or `--help`.</span>
-          cb => fun((<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_opts">result_opts())</a> -> <a href="#type_result_opts">result_opts())</a>
+          cb => fun((<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_opts">result_opts()</a>) -> <a href="#type_result_opts">result_opts()</a>)
           }.
 </code></pre>
 
@@ -159,7 +159,7 @@ argument can be given.
           name := atom(),
 
           <span style="color:indianred">%% Default is `name` in uppercase or in brackets (depending</span>
-          <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts())</a>.</span>
+          <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts()</a>).</span>
           metavar => string(),
 
           type => <a href="#type_argtype">argtype()</a>,
@@ -191,22 +191,30 @@ argument can be given.
         <span style="color:indianred">%% any float</span>
       | float
         <span style="color:indianred">%% A float that falls into one of the given ranges</span>
-      | {float, [range(<a href="#type_float">float())</a>]}
+      | {float, [range(float())]}
         <span style="color:indianred">%% Any integer</span>
       | integer
         <span style="color:indianred">%% An integer that falls into one of the given ranges</span>
-      | {integer, [range(<a href="#type_integer">integer())</a>]}
+      | {integer, [range(integer())]}
         <span style="color:indianred">%% Any term</span>
-      | {custom, fun((<a href="#type_string">string())</a> -> {ok, term()} | {error, Msg :: string()})}
+      | {custom, fun((string()) -> {ok, term()} | {error, Msg :: string()})}
       .
 </code></pre>
 
 ### <a name="type_parse_result">parse_result()</a>
 
 <pre><code>-type <a href="#type_parse_result">parse_result()</a> ::
-        {CmdName :: atom(),
+        {<span style="color:indianred">%% The name of the selected command or subcommand.</span>
+         CmdName :: atom(),
+
+         <span style="color:indianred">%% The options given to `CmdName`.</span>
          Opts :: <a href="#type_result_opts">result_opts()</a>,
+
+         <span style="color:indianred">%% The positional arguments given to `CmdName`.</span>
          Args :: <a href="#type_result_args">result_args()</a>,
+
+         <span style="color:indianred">%% If `CmdName` is a subcommand, `CmdStack` contains the</span>
+         <span style="color:indianred">%% selected ancestor commands and the options given to them.</span>
          CmdStack :: <a href="#type_result_cmd_stack">result_cmd_stack()</a>}.
 </code></pre>
 
@@ -263,17 +271,17 @@ argument can be given.
           <span style="color:indianred">%% angle_brackets: `name` surrounded by angle brackets</span>
           metavar_style => caps | angle_brackets,
 
-          <span style="color:indianred">%% short: CMD [OPTIONS] [CMD ...| ARGS]</span>
-          <span style="color:indianred">%% long: CMD [--version] [--help] ...</span>
-          usage_style => short | long,
-
           <span style="color:indianred">%% If `version` is given, the option `--version` is automatically</span>
-          <span style="color:indianred">%% added.</span>
+          <span style="color:indianred">%% added to the main command.</span>
           version => string(),
 
           <span style="color:indianred">%% If `default_help_opt` is set to `true`, `-h|--help` is added to</span>
           <span style="color:indianred">%% the command and all subcommands.</span>
           default_help_opt => boolean(), <span style="color:indianred">% default is 'true'</span>
+
+          <span style="color:indianred">%% If `print_usage_on_error` is set to 'true', a message will</span>
+          <span style="color:indianred">%% be printed to stderr if parsing of the command line failed.</span>
+          print_usage_on_error => boolean(), <span style="color:indianred">% default is 'true'</span>
 
           <span style="color:indianred">%% A user-defined term.  Useful to pass data to callbacks.</span>
           user => term()
@@ -289,65 +297,54 @@ argument can be given.
 ### <a name="func_parse">parse/2</a>
 
 <pre><code>-spec parse(CmdLine :: [string()],
-            CmdSpec :: <a href="#type_cmd">cmd())</a> ->
-    <span style="color:indianred">%% `done` is returned if an cmd or option callback has been called</span>
+            CmdSpec :: <a href="#type_cmd">cmd()</a>) ->
     {done, term()}
   | {ok, <a href="#type_parse_result">parse_result()</a>}
   | {error, Error :: term()}
+  | CbRes :: term()
   .
 </code></pre>
-### <a name="func_parse">parse/2</a>
-
-<pre><code>-spec parse(CmdLine :: [string()],
-            CmdSpec :: <a href="#type_cmd">cmd()</a>,
-            Options :: <a href="#type_parse_opts">parse_opts())</a> ->
-    <span style="color:indianred">%% `done` is returned if an cmd or option callback has been called</span>
-    {done, term()}
-  | {ok, <a href="#type_parse_result">parse_result()</a>}
-  | {error, Error :: term()}
-  .
-</code></pre>
+Equivalent to `parse(CmdLine, CmdSpec, #{})`.
 
 ### <a name="func_parse">parse/3</a>
 
 <pre><code>-spec parse(CmdLine :: [string()],
-            CmdSpec :: <a href="#type_cmd">cmd())</a> ->
-    <span style="color:indianred">%% `done` is returned if an cmd or option callback has been called</span>
-    {done, term()}
-  | {ok, <a href="#type_parse_result">parse_result()</a>}
-  | {error, Error :: term()}
-  .
-</code></pre>
-### <a name="func_parse">parse/3</a>
-
-<pre><code>-spec parse(CmdLine :: [string()],
             CmdSpec :: <a href="#type_cmd">cmd()</a>,
-            Options :: <a href="#type_parse_opts">parse_opts())</a> ->
-    <span style="color:indianred">%% `done` is returned if an cmd or option callback has been called</span>
+            Options :: <a href="#type_parse_opts">parse_opts()</a>) ->
     {done, term()}
   | {ok, <a href="#type_parse_result">parse_result()</a>}
   | {error, Error :: term()}
+  | CbRes :: term()
   .
 </code></pre>
+Parse a command line of strings according to the `CmdSpec`.
+
+If parsing fails, a message is printed to the user, and
+`{error, term()}` is returned.  The message can be suppressed with
+the parse option `print_usage_on_error => false`.
+
+If the selected command (main or subcommand) has a callback defined,
+the return value from the callback is returned, unless it returns
+`{error, ErrMsg :: iodata(), Reason :: term()}`, in which case
+parsing fails and `ErrMsg` is printed to the user (see above), and
+`<a href="#type_parse">parse()</a>` returns `{error, Reason}`.
+
+If any option's callback throws `{done, term()}`, this is returned.
+
+Otherwise, parsing succeeds and no callback was invoked, the
+`parse` function returns `{ok, <a href="#type_parse_result">parse_result()</a>}`.
 
 
 
 ### <a name="func_default_help_opt">default_help_opt/0</a>
 
-Returns the option spec for `-h|--help`.
 <pre><code>-spec <a href="#type_default_help_opt">default_help_opt()</a> -> <a href="#type_opt">opt()</a>.
-<a href="#type_default_help_opt">default_help_opt()</a> ->
-    #{name => help, short => $h, long => "help", type => flag,
-      expose_value => false, cb => fun cmd_help/2,
-      help => "Show this help and exit"}.
 </code></pre>
+Returns the option spec for `-h|--help`.
 
 ### <a name="func_default_version_opt">default_version_opt/0</a>
 
-Returns the option spec for `--version`.
 <pre><code>-spec <a href="#type_default_version_opt">default_version_opt()</a> -> <a href="#type_opt">opt()</a>.
-<a href="#type_default_version_opt">default_version_opt()</a> ->
-    #{name => version, long => "version", type => flag,
-      expose_value => false, cb => fun cmd_version/2}.
 </code></pre>
+Returns the option spec for `--version`.
 

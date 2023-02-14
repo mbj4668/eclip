@@ -19,6 +19,9 @@
 -define(a2l, atom_to_list).
 -define(l2a, list_to_atom).
 
+-define(iolf, io_lib:format).
+-define(nl, io_lib:nl()).
+
 %% Specifies the main command and subcommands.
 -type cmd() ::
         #{
@@ -206,9 +209,17 @@
 -type parse_env() :: {cmd(), parse_opts()}.
 
 -type parse_result() ::
-        {CmdName :: atom(),
+        {%% The name of the selected command or subcommand.
+         CmdName :: atom(),
+
+         %% The options given to `CmdName`.
          Opts :: result_opts(),
+
+         %% The positional arguments given to `CmdName`.
          Args :: result_args(),
+
+         %% If `CmdName` is a subcommand, `CmdStack` contains the
+         %% selected ancestor commands and the options given to them.
          CmdStack :: result_cmd_stack()}.
 
 -type result_opts() ::
@@ -248,24 +259,24 @@
           %% angle_brackets: `name` surrounded by angle brackets
           metavar_style => caps | angle_brackets,
 
-          %% short: CMD [OPTIONS] [CMD ...| ARGS]
-          %% long: CMD [--version] [--help] ...
-          usage_style => short | long,
-
           %% If `version` is given, the option `--version` is automatically
-          %% added.
+          %% added to the main command.
           version => string(),
 
           %% If `default_help_opt` is set to `true`, `-h|--help` is added to
           %% the command and all subcommands.
           default_help_opt => boolean(), % default is 'true'
 
+          %% If `print_usage_on_error` is set to 'true', a message will
+          %% be printed to stderr if parsing of the command line failed.
+          print_usage_on_error => boolean(), % default is 'true'
+
           %% A user-defined term.  Useful to pass data to callbacks.
           user => term()
          }.
 
-%% Returns the option spec for `-h|--help`.
 -spec default_help_opt() -> opt().
+%% Returns the option spec for `-h|--help`.
 default_help_opt() ->
     #{name => help, short => $h, long => "help", type => flag,
       expose_value => false, cb => fun cmd_help/2,
@@ -275,8 +286,8 @@ cmd_help({CmdSpec, ParseOpts}, _) ->
     print_help(standard_io, CmdSpec, ParseOpts),
     throw({done, ok}).
 
-%% Returns the option spec for `--version`.
 -spec default_version_opt() -> opt().
+%% Returns the option spec for `--version`.
 default_version_opt() ->
     #{name => version, long => "version", type => flag,
       expose_value => false, cb => fun cmd_version/2}.
@@ -285,24 +296,44 @@ cmd_version({#{name := Cmd}, #{version := Vsn}}, _) ->
     io:format("~ts ~ts\n", [Cmd, Vsn]),
     throw({done, ok}).
 
+%% @parse/2
 -spec parse(CmdLine :: [string()],
             CmdSpec :: cmd()) ->
-    %% `done` is returned if an cmd or option callback has been called
     {done, term()}
   | {ok, parse_result()}
   | {error, Error :: term()}
+  | CbRes :: term()
   .
+%% Equivalent to `parse(CmdLine, CmdSpec, #{})`.
 parse(CmdName, Cmd) ->
     parse(CmdName, Cmd, #{}).
 
+
+%% @parse/3
 -spec parse(CmdLine :: [string()],
             CmdSpec :: cmd(),
             Options :: parse_opts()) ->
-    %% `done` is returned if an cmd or option callback has been called
     {done, term()}
   | {ok, parse_result()}
   | {error, Error :: term()}
+  | CbRes :: term()
   .
+%% Parse a command line of strings according to the `CmdSpec`.
+%%
+%% If parsing fails, a message is printed to the user, and
+%% `{error, term()}` is returned.  The message can be suppressed with
+%% the parse option `print_usage_on_error => false`.
+%%
+%% If the selected command (main or subcommand) has a callback defined,
+%% the return value from the callback is returned, unless it returns
+%% `{error, ErrMsg :: iodata(), Reason :: term()}`, in which case
+%% parsing fails and `ErrMsg` is printed to the user (see above), and
+%% `parse()` returns `{error, Reason}`.
+%%
+%% If any option's callback throws `{done, term()}`, this is returned.
+%%
+%% Otherwise, parsing succeeds and no callback was invoked, the
+%% `parse` function returns `{ok, parse_result()}`.
 parse(CmdLine, Cmd0, ParseOpts) ->
     Cmd1 =
         case maps:is_key(version, ParseOpts) of
@@ -313,10 +344,29 @@ parse(CmdLine, Cmd0, ParseOpts) ->
         end,
     try
         Cmd2 = prepare_main_cmd(Cmd1),
-        parse_cmd(CmdLine, Cmd2, ParseOpts, [])
+        case parse_cmd(CmdLine, Cmd2, ParseOpts, []) of
+            {error, _} = Error ->
+                case maps:get(print_usage_on_error, ParseOpts, true) of
+                    true ->
+                        io:put_chars(standard_error,
+                                     [fmt_error(Error),
+                                      ?nl,
+                                      fmt_error_usage(Cmd2, ParseOpts)]);
+                    false ->
+                        ok
+                end,
+                case Error of
+                    {error, {cb_error, _, Reason}} -> % unwrap the cb err
+                        {error, Reason};
+                    _ ->
+                        Error
+                end;
+            Res ->
+                Res
+        end
     catch
-        throw:{done, _} = Res ->
-            Res
+        throw:{done, _} = Done ->
+            Done
     end.
 
 parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
@@ -368,17 +418,24 @@ handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
     %% FIXME: validate required args etc
     case maps:find(cb, Cmd) of
         {ok, Cb} ->
-            case erlang:fun_info(Cb, arity) of
-                {arity, 1} ->
-                    Cb({Env, CmdStack, ResultOpts, ResultArgs});
+            CbRes =
+                case erlang:fun_info(Cb, arity) of
+                    {arity, 1} ->
+                        Cb({Env, CmdStack, ResultOpts, ResultArgs});
+                    _ ->
+                        A = [Env, CmdStack] ++
+                            [get_val(Opt, ResultOpts) ||
+                                Opt <- maps:get(opts, Cmd, []),
+                                maps:get(expose_value, Opt, true)] ++
+                            [get_val(Arg, ResultArgs) ||
+                                Arg <- maps:get(args, Cmd, [])],
+                        apply(Cb, A)
+                end,
+            case CbRes of
+                {error, ErrMsg, Reason} ->
+                    {error, {cb_error, ErrMsg, Reason}};
                 _ ->
-                    A = [Env, CmdStack] ++
-                        [get_val(Opt, ResultOpts) ||
-                            Opt <- maps:get(opts, Cmd, []),
-                            maps:get(expose_value, Opt, true)] ++
-                        [get_val(Arg, ResultArgs) ||
-                            Arg <- maps:get(args, Cmd, [])],
-                    apply(Cb, A)
+                    CbRes
             end;
         _ ->
             {ok, {CmdName, ResultOpts, ResultArgs, CmdStack}}
@@ -687,8 +744,8 @@ parse_sopts([SOpt | T], Args, Opts, Env, OptsAcc0, CmdStack) ->
                Type =:= boolean ->
             {ok, [], OptsAcc1} = handle_opt(Opt, [], OptsAcc0, Env),
             parse_sopts(T, Args, Opts, Env, OptsAcc1, CmdStack);
-        {ok, _} ->
-            {error, nyi};
+        {ok, #{name := Name}} ->
+            {error, {expected_opt_argument, Name}};
         Error ->
             Error
     end.
@@ -898,9 +955,6 @@ chk_ranges([_ | T], Val) ->
 
 %%% Help formatting
 
--define(iolf, io_lib:format).
--define(nl, io_lib:nl()).
-
 print_help(Fd, Cmd, ParseOpts) ->
     Width =
         case io:columns(Fd) of
@@ -944,6 +998,17 @@ fmt_usage(#{cmd := CmdStr} =  Cmd, MStyle) ->
         _ ->
             ["Usage: ", CmdStr, OptionsStr, ?nl]
     end.
+
+fmt_error_usage(#{cmd := CmdStr} = Cmd, ParseOpts) ->
+    MStyle = maps:get(metavar_style, ParseOpts, caps),
+    [fmt_usage(Cmd, MStyle),
+     case maps:get(default_help_opt, ParseOpts, true) of
+         true ->
+             ["Try '", CmdStr, " --help' for more information."];
+         false ->
+             []
+     end,
+     ?nl].
 
 fmt_cmd_help(#{help := Help}, {W, _C}) ->
     [prettypr:format(prettypr:nest(2, prettypr:text_par(Help)), W, W), ?nl];
@@ -1112,3 +1177,8 @@ first_sentence([]) ->
 
 split_lines(Str) ->
     re:split(Str, "\n", [{return, list}]).
+
+fmt_error({error, {cb_error, ErrMsg, _}}) ->
+    ErrMsg;
+fmt_error(Error) ->
+    io_lib:format("~p", [Error]).

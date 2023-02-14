@@ -10,8 +10,9 @@
 ###
 ### A function must be specified as:
 ###   
-###   <function description as comments>
 ###   -spec NAME ...
+###   <function description as comments>
+###   NAME( ...
 ###
 ### The type and spec bodies are extracted verbatim, including
 ### comments, which means that comments are used to document the types
@@ -37,12 +38,7 @@ extract_exported() {
     }
     
     BEGIN {
-        skip = 1
-    
-        if (WHAT == "") {
-            print "The variable WHAT must be set (awk -v WHAT=...)";
-            exit(1);
-        }
+        skip = 1;
     }
     
     $0 ~ ("^-" WHAT "\\(") {
@@ -58,15 +54,9 @@ extract_exported() {
 
 extract_def() {
     cat $1 | awk -v $2=$3 '
-    ### Extract the given Erlang type definition, and convert all
-    ### type references to relative links.
-    ###
-    ### The type must be specified as:
-    ### -type NAME(...) { ...
-    ###  ...
-    ###      }.
-    ###
-    
+    ### Extract the given Erlang type or function definition, and
+    ### convert all type references to relative links.
+
     function colorize_comment(str) {
         sub("%.*", "<span style=\"color:indianred\">&</span>", str);
         return str;
@@ -74,7 +64,7 @@ extract_def() {
     
     function print_with_links(str) {
         ## convert all type references to links
-        split(str, a, "[a-z_]+\\(.?\\)", seps);
+        split(str, a, "[a-z_]+\\([^\\).]?\\)", seps);
         i = 1
         for (j in seps) {
             printf("%s", a[i]);
@@ -92,13 +82,8 @@ extract_def() {
     }
     
     BEGIN {
-        skip = 1
-        k = 1
-    
-        if (FUNC== "" && TYPE == "") {
-            print "The variable FUNC or TYPE must be set (awk -v TYPE=...)";
-            exit(1);
-        }
+        skip = 1;
+        k = 1;
     
         if (FUNC != "") {
             split(FUNC, a, "/")
@@ -115,9 +100,29 @@ extract_def() {
         builtins["fun()"] = 1
         builtins["atom()"] = 1
         builtins["char()"] = 1
+        builtins["iodata()"] = 1
     
     }
     
+    ## special annotation for multi-arity functions
+    $0 ~ ("^%% @" FNAME "/" ARITY) {
+       found_func = 1;
+       next;
+    }
+
+    $0 ~ ("%% @" FNAME "/") {
+       ## this is NOT our function!
+       getline; next;
+    }
+
+    print_comments == 1 && /^%%/ {
+        sub("^%+", "");
+        sub("^(\\s)+", "");
+        $0 = colorize_comment($0);
+        print_with_links($0);
+        next;
+    }
+
     ## keep track of comments.  we use them if they are right above the
     ## type we are extracting
     skip == 1 && /^%%/ {
@@ -135,11 +140,14 @@ extract_def() {
         for (c in comments) {
             print gensub("^(\\s)+", "", 1, gensub("^%+", "", 1, comments[c]));
         }
-        delete comments
+        for (c in comments) {
+            delete comments[c]
+        }
         printf("<pre><code>");
         $0 = colorize_comment($0);
         print_with_links($0);
         if (($0 ~ "\\.$") && !($0 ~ "%")) {
+            ## end of the type
             skip = 1;
             printf("</code></pre>\n");
         }
@@ -148,15 +156,22 @@ extract_def() {
     }
     
     ## this is the function we are looking for
-    $0 ~ ("^-spec " FNAME "\\(") {
+    found_func == 1 || $0 ~ ("^-spec " FNAME "\\(") {
+        found_func = 0;
         skip = 0;
         printf("### <a name=\"func_%s\">%s/%s</a>\n\n", FNAME, FNAME, ARITY);
         for (c in comments) {
-            print gensub("^(\\s)+", "", 1, gensub("^%+", "", 1, comments[c]));
+            delete comments[c]
         }
-        delete comments
         printf("<pre><code>");
         print_with_links($0);
+        if (($0 ~ "\\.$") && !($0 ~ "%")) {
+            ## end of function spec
+            skip = 1;
+            print_comments = 1;
+            printf("</code></pre>\n");
+        }
+
         next;
     }
     
@@ -171,7 +186,7 @@ extract_def() {
     skip == 0 && TYPE != "" && /\.$/ {
         $0 = colorize_comment($0);
         print_with_links($0);
-        if ($0 ~ "%") {
+        if ($0 ~ "%") { # comment line that ends with "." -  keep going
             next;
         }
         skip = 1;
@@ -179,18 +194,25 @@ extract_def() {
         next;
     }
     
-    ## end of the function
+    ## end of the function spec
     skip == 0 && FUNC != "" && /\.$/ {
         $0 = colorize_comment($0);
         print_with_links($0);
-        if ($0 ~ "%") {
+        if ($0 ~ "%") { # comment line that ends with "." -  keep going
             next;
         }
+        print_comments = 1;
         skip = 1;
         printf("</code></pre>\n");
         next;
     }
     
+    ## end of comments between -spec and function definition
+    print_comments == 1 && $0 ~ ("^" FNAME "\\(") {
+        print_comments = 0;
+        skip = 1;
+    }
+
     ## body of the type
     skip == 0 {
         ## put color on all comments
