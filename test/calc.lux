@@ -20,20 +20,29 @@
     !source <(./calc --completion bash)
     ?SH-PROMPT
 
-# I can't get this to work in lux.  Why??
-#    ~./calc ${_TAB_}${_TAB_}
-#    ?div           sum           --help
-#    ?math          --completion  -h
-#    !
-#    ?SH-PROMPT
+    ## This doesn't work.  Why?
+    #~./calc ${_TAB_}${_TAB_}
+    ~./calc${_ASCII_32_}
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?div           sum           --help
+    ?math          --completion  -h
+    !
+    ?SH-PROMPT
 
     ~./calc m${_TAB_}
     ?./calc math
     !
     ?SH-PROMPT
 
-#    ~./calc math ${_TAB_}${_TAB_}
-#    ?cos     sin     tan     --help  -h
-#    !
-#    ?SH-PROMPT
+    ~./calc math${_ASCII_32_}
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?cos     sin     tan     --help  -h
+    !
+    ?SH-PROMPT
     

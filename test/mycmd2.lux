@@ -1,0 +1,16 @@
+[doc test completion with default options]
+
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
+[shell test]
+    !source <(./mycmd2 --completion bash)
+    ?SH-PROMPT
+    ~./mycmd2 -
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?--completion  --help        -h            -i
+

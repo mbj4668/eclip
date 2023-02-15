@@ -131,6 +131,8 @@ fields.
 
           required => boolean(), <span style="color:indianred">% default is `false`</span>
 
+          <span style="color:indianred">%% If `expose_value` is `false`, then the option is not included</span>
+          <span style="color:indianred">%% in the arguemts to callbacks with arity > 1.</span>
           expose_value => boolean(), <span style="color:indianred">% default is `true`</span>
 
           <span style="color:indianred">%% If the option is found, the callback is invoked.  The callback</span>

@@ -441,7 +441,8 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
     Cmd = flatten_cmd(Cmd1),
     case parse_opts(CmdLine, maps:get(opts, Cmd), Env, #{}, CmdStack) of
         {ok, RestCmdLine, ResultOpts0} ->
-            ResultOpts = set_defaults(maps:get(opts, Cmd, []), ResultOpts0),
+            ResultOpts =
+                set_defaults(maps:get(opts, Cmd, []), ResultOpts0, Env),
             case maps:get(args, Cmd, undefined) of
                 undefined when RestCmdLine =/= [] ->
                     case maps:get(cmdmap, Cmd, undefined) of
@@ -458,7 +459,7 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
                     case parse_args(Args, RestCmdLine, false) of
                         {ok, [], ResultArgs0} ->
                             ResultArgs = set_defaults(maps:get(args, Cmd, []),
-                                                      ResultArgs0),
+                                                      ResultArgs0, Env),
                             handle_parsed_cmd(Cmd, Env, ResultOpts,
                                               ResultArgs, CmdStack);
                         {ok, RestCmdLine, _} ->
@@ -505,16 +506,24 @@ handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
             {ok, {CmdName, Env, ResultOpts, ResultArgs, CmdStack}}
     end.
 
-set_defaults([#{name := Name, default := Default} | T], ResultMap) ->
+set_defaults(Items, ResultMap, Env) ->
+    case is_completion(Env) of
+        true ->
+            ResultMap;
+        false ->
+            set_defaults0(Items, ResultMap)
+    end.
+
+set_defaults0([#{name := Name, default := Default} | T], ResultMap) ->
     case maps:is_key(Name, ResultMap) of
         true ->
-            set_defaults(T, ResultMap);
+            set_defaults0(T, ResultMap);
         false ->
-            set_defaults(T, ResultMap#{Name => Default})
+            set_defaults0(T, ResultMap#{Name => Default})
     end;
-set_defaults([_ | T], ResultMap) ->
-    set_defaults(T, ResultMap);
-set_defaults([], ResultMap) ->
+set_defaults0([_ | T], ResultMap) ->
+    set_defaults0(T, ResultMap);
+set_defaults0([], ResultMap) ->
     ResultMap.
 
 get_val(#{name := Name} = Item, ResultItems) ->
@@ -887,13 +896,7 @@ handle_opt(#{name := Name} = Opt, CmdLine0, OptsAcc, Env) ->
     end.
 
 ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env) ->
-    IsCompletion =
-        case Env of
-            {_, #{'_comp_word' := _}} ->
-                true;
-            _ ->
-                false
-        end,
+    IsCompletion = is_completion(Env),
     OptsAcc1 = OptsAcc0#{Name => NewVal},
     OptsAcc2 =
         case Opt of
@@ -1267,6 +1270,14 @@ fmt_error(Error) ->
 
 
 %%% Completion
+
+is_completion(Env) ->
+    case Env of
+        {_, #{'_comp_word' := _}} ->
+            true;
+        _ ->
+            false
+    end.
 
 print_suggestions({_CmdName, {Cmd, ParseOpts}, ResultOpts, _, _}) ->
     #{'_comp_word' := CompWord} = ParseOpts,
