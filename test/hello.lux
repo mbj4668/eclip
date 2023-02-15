@@ -33,3 +33,8 @@ SH-PROMPT
     ?SH-PROMPT
     ~./hello --n$_TAB_
     ?./hello --name
+
+[shell test-errors]
+    !./hello --count foo
+    ?Error: bad value "foo" for option --count
+    ?SH-PROMPT

@@ -279,7 +279,8 @@
           default_completion_opt => boolean, % default is 'true'
 
           %% If `print_usage_on_error` is set to 'true', a message will
-          %% be printed to stderr if parsing of the command line failed.
+          %% be printed to stderr if parsing of the command line failed,
+          %% and the command will exit with code 1.
           print_usage_on_error => boolean(), % default is 'true'
 
           %% A user-defined term.  Useful to pass data to callbacks.
@@ -356,6 +357,9 @@ parse(CmdName, Cmd) ->
   .
 %% Parse a command line of strings according to the `CmdSpec`.
 %%
+%% If there is an error in `CmdSpec`, an `error` is raised, on the
+%% form `{error, term()}`.
+%%
 %% If parsing fails, a message is printed to the user, and
 %% `{error, term()}` is returned.  The message can be suppressed with
 %% the parse option `print_usage_on_error => false`.
@@ -409,9 +413,10 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
                     true ->
                         io:put_chars(
                           standard_error,
-                          [fmt_error(Error),
-                           ?nl,
-                           fmt_error_usage(Cmd3, ParseOpts)]);
+                          ["Error: ", fmt_error(Error),
+                           ?nl, ?nl,
+                           fmt_error_usage(Cmd3, ParseOpts)]),
+                        halt(1);
                     false ->
                         ok
                 end,
@@ -439,7 +444,10 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
         end,
     Env = {Cmd1, ParseOpts},
     Cmd = flatten_cmd(Cmd1),
-    case parse_opts(CmdLine, maps:get(opts, Cmd), Env, #{}, CmdStack) of
+    CmdStr = maps:get(cmd, Cmd),
+    case
+        parse_opts(CmdLine, maps:get(opts, Cmd), CmdStr, Env, #{}, CmdStack)
+    of
         {ok, RestCmdLine, ResultOpts0} ->
             ResultOpts =
                 set_defaults(maps:get(opts, Cmd, []), ResultOpts0, Env),
@@ -447,23 +455,25 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
                 undefined when RestCmdLine =/= [] ->
                     case maps:get(cmdmap, Cmd, undefined) of
                         undefined ->
-                            {error, {unexpected_args0, RestCmdLine}};
+                            {error, {unexpected_args, CmdStr, RestCmdLine}};
                         CmdMap ->
                             CmdName = maps:get(name, Cmd),
-                            parse_sub_cmd(RestCmdLine, CmdMap, Env,
+                            parse_sub_cmd(RestCmdLine, CmdMap, CmdStr, Env,
                                           [{CmdName, ResultOpts} | CmdStack])
                     end;
                 undefined ->
                     handle_parsed_cmd(Cmd, Env, ResultOpts, #{}, CmdStack);
                 Args ->
-                    case parse_args(Args, RestCmdLine, false) of
+                    case
+                        parse_args(Args, RestCmdLine, false, {cmd, CmdStr}, Env)
+                    of
                         {ok, [], ResultArgs0} ->
                             ResultArgs = set_defaults(maps:get(args, Cmd, []),
                                                       ResultArgs0, Env),
                             handle_parsed_cmd(Cmd, Env, ResultOpts,
                                               ResultArgs, CmdStack);
-                        {ok, RestCmdLine, _} ->
-                            {error, {unexpected_args, RestCmdLine}};
+                        {ok, RestCmdLine1, _} ->
+                            {error, {unexpected_args, CmdStr, RestCmdLine1}};
                         Error ->
                             Error
                     end
@@ -476,8 +486,8 @@ handle_parsed_cmd(#{name := CmdName},
                   {_, #{'_comp_word' := _}} = Env,
                   ResultOpts, ResultArgs, CmdStack) ->
     {ok, {CmdName, Env, ResultOpts, ResultArgs, CmdStack}};
-handle_parsed_cmd(#{name := CmdName, require_cmd := true}, _, _, _, _) ->
-    {error, {expected_subcmd, CmdName}};
+handle_parsed_cmd(#{cmd := CmdStr, require_cmd := true}, _, _, _, _) ->
+    {error, {expected_subcmd, CmdStr}};
 handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
                   ResultOpts, ResultArgs, CmdStack) ->
     %% FIXME: validate required args etc
@@ -530,12 +540,12 @@ get_val(#{name := Name} = Item, ResultItems) ->
     maps:get(Name, ResultItems,
              maps:get(default, Item, undefined)).
 
-parse_sub_cmd([CmdStr | T], CmdMap, {_, ParseOpts}, CmdStack) ->
-    case maps:find(CmdStr, CmdMap) of
+parse_sub_cmd([SubCmdStr | T], CmdMap, CmdStr, {_, ParseOpts}, CmdStack) ->
+    case maps:find(SubCmdStr, CmdMap) of
         {ok, SubCmdSpec} ->
             parse_cmd(T, SubCmdSpec, ParseOpts, CmdStack);
         error ->
-            {error, {unknown_subcmd, CmdStr}}
+            {error, {unknown_param, CmdStr, SubCmdStr}}
     end.
 
 add_opt(Opt, Cmd) ->
@@ -775,57 +785,60 @@ validate_nargs([_ | T], OptionalFound) ->
 validate_nargs([], _) ->
     ok.
 
-parse_opts(["--" | T], _Opts, _Env, OptsAcc, _CmdStack) ->
+parse_opts(["--" | T], _Opts, _CmdStr, _Env, OptsAcc, _CmdStack) ->
     {ok, T, OptsAcc};
-parse_opts(["--no-" ++ LOpt | T], Opts, Env, OptsAcc0, CmdStack) ->
+parse_opts(["--no-" ++ LOpt | T], Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
     %% first check if this is a boolean option
-    case match_opt(LOpt, long, Opts, OptsAcc0) of
+    case match_opt(LOpt, long, Opts, CmdStr, OptsAcc0) of
         {ok, #{name := Name, type := boolean}} ->
             OptsAcc1 = OptsAcc0#{Name => false},
-            parse_opts(T, Opts, Env, OptsAcc1, CmdStack);
+            parse_opts(T, Opts, CmdStr, Env, OptsAcc1, CmdStack);
         _ ->
             %% else fall back to normal parsing of long opts
-            parse_lopt(LOpt, T, Opts, Env, OptsAcc0, CmdStack)
+            parse_lopt(LOpt, T, Opts, CmdStr, Env, OptsAcc0, CmdStack)
     end;
-parse_opts(["--" ++ LOpt | T], Opts, Env, OptsAcc, CmdStack) ->
-    parse_lopt(LOpt, T, Opts, Env, OptsAcc, CmdStack);
-parse_opts(["-" ++ SOptL | T], Opts, Env, OptsAcc, CmdStack) when SOptL /= [] ->
-    parse_sopts(SOptL, T, Opts, Env, OptsAcc, CmdStack);
-parse_opts(RestCmdLine, _Opts, _Env, OptsAcc, _CmdStack) ->
+parse_opts(["--" ++ LOpt | T], Opts, CmdStr, Env, OptsAcc, CmdStack) ->
+    parse_lopt(LOpt, T, Opts, CmdStr, Env, OptsAcc, CmdStack);
+parse_opts(["-" ++ SOptL | T], Opts, CmdStr, Env, OptsAcc, CmdStack)
+  when SOptL /= [] ->
+    parse_sopts(SOptL, T, Opts, CmdStr, Env, OptsAcc, CmdStack);
+parse_opts(RestCmdLine, _Opts, _CmdStr, _Env, OptsAcc, _CmdStack) ->
     {ok, RestCmdLine, OptsAcc}.
 
-parse_lopt(LOpt, Args, Opts, Env, OptsAcc, CmdStack) ->
-    case match_opt(LOpt, long, Opts, OptsAcc) of
+parse_lopt(LOpt, Args, Opts, CmdStr, Env, OptsAcc, CmdStack) ->
+    case match_opt(LOpt, long, Opts, CmdStr, OptsAcc) of
         {ok, Opt} ->
-            handle_opt_and_continue(Opt, Args, Opts, Env, OptsAcc, CmdStack);
+            handle_opt_and_continue(Opt, long, Args, Opts, CmdStr,
+                                    Env, OptsAcc, CmdStack);
         Else ->
             Else
     end.
 
-parse_sopts([SOpt], Args, Opts, Env, OptsAcc, CmdStack) ->
+parse_sopts([SOpt], Args, Opts, CmdStr, Env, OptsAcc, CmdStack) ->
     %% last short option, may take an argument
-    case match_opt(SOpt, short, Opts, OptsAcc) of
+    case match_opt(SOpt, short, Opts, CmdStr, OptsAcc) of
         {ok, Opt} ->
-            handle_opt_and_continue(Opt, Args, Opts, Env, OptsAcc, CmdStack);
+            handle_opt_and_continue(Opt, short, Args, Opts, CmdStr,
+                                    Env, OptsAcc, CmdStack);
         Else ->
             Else
     end;
-parse_sopts([SOpt | T], Args, Opts, Env, OptsAcc0, CmdStack) ->
+parse_sopts([SOpt | T], Args, Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
     %% clustered short option that must not take an argument
-    case match_opt(SOpt, short, Opts, OptsAcc0) of
+    case match_opt(SOpt, short, Opts, CmdStr, OptsAcc0) of
         {ok, #{type := Type} = Opt}
           when Type =:= count;
                Type =:= flag;
                Type =:= boolean ->
-            {ok, [], OptsAcc1} = handle_opt(Opt, [], OptsAcc0, Env),
-            parse_sopts(T, Args, Opts, Env, OptsAcc1, CmdStack);
-        {ok, #{name := Name}} ->
-            {error, {expected_opt_argument, Name}};
+            {ok, [], OptsAcc1} = handle_opt(Opt, short, [], OptsAcc0, Env),
+            parse_sopts(T, Args, Opts, CmdStr, Env, OptsAcc1, CmdStack);
+        {ok, _} ->
+            {error, {opt_needs_argument, CmdStr, [$-, SOpt]}};
         Error ->
             Error
     end.
 
-match_opt(GivenOpt, Style, [Opt | T], OptsAcc) ->
+match_opt(GivenOpt, Style, [Opt | T], CmdStr, OptsAcc) ->
     case Opt of
         #{Style := GivenOpt} ->
             case Opt of
@@ -836,24 +849,33 @@ match_opt(GivenOpt, Style, [Opt | T], OptsAcc) ->
                         false ->
                             {ok, Opt};
                         true ->
-                            {error, {option_already_given, GivenOpt, Name}}
+                            OptStr = opt_str(Style, GivenOpt),
+                            {error, {opt_already_given, CmdStr, OptStr}}
                     end
             end;
         _ ->
-            match_opt(GivenOpt, Style, T, OptsAcc)
+            match_opt(GivenOpt, Style, T, CmdStr, OptsAcc)
     end;
-match_opt(GivenOpt, _, [], _) ->
-    {error, {unknown_option, GivenOpt}}.
+match_opt(GivenOpt, Style, [], CmdStr, _) ->
+    OptStr = opt_str(Style, GivenOpt),
+    {error, {unknown_opt, CmdStr, OptStr}}.
 
-handle_opt_and_continue(Opt, Args0, Opts, Env, OptsAcc0, CmdStack) ->
-    case handle_opt(Opt, Args0, OptsAcc0, Env) of
+opt_str(short, GivenOpt) ->
+    [$-, GivenOpt];
+opt_str(long, GivenOpt) ->
+    [$-, $- | GivenOpt].
+
+
+handle_opt_and_continue(Opt, Style, Args0, Opts, CmdStr, Env,
+                        OptsAcc0, CmdStack) ->
+    case handle_opt(Opt, Style, Args0, OptsAcc0, Env) of
         {ok, Args1, OptsAcc1} ->
-            parse_opts(Args1, Opts, Env, OptsAcc1, CmdStack);
+            parse_opts(Args1, Opts, CmdStr, Env, OptsAcc1, CmdStack);
         Error ->
             Error
     end.
 
-handle_opt(#{name := Name} = Opt, CmdLine0, OptsAcc, Env) ->
+handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env) ->
     Multiple = maps:get(multiple, Opt, false),
     case Opt of
         #{type := count} ->
@@ -872,7 +894,7 @@ handle_opt(#{name := Name} = Opt, CmdLine0, OptsAcc, Env) ->
                 end,
             StopOnOpt = maps:get(nargs, Arg, 1) == '?',
             case
-                parse_args([Arg], CmdLine0, StopOnOpt)
+                parse_args([Arg], CmdLine0, StopOnOpt, {opt, Style, Opt}, Env)
             of
                 {ok, CmdLine1, #{Name := ArgVal}} when not Multiple ->
                     ret_opt(Opt, CmdLine1, OptsAcc, ArgVal, Env);
@@ -883,7 +905,7 @@ handle_opt(#{name := Name} = Opt, CmdLine0, OptsAcc, Env) ->
                     Else
             end;
         #{args := ArgSpecs} ->
-            case parse_args(ArgSpecs, CmdLine0, true) of
+            case parse_args(ArgSpecs, CmdLine0, true, {opt, Style, Opt}, Env) of
                 {ok, CmdLine1, ResultArgs} when not Multiple ->
                     ret_opt(Opt, CmdLine1, OptsAcc, ResultArgs, Env);
                 {ok, CmdLine1, ResultArgs} ->
@@ -908,73 +930,96 @@ ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env) ->
     {ok, CmdLine, OptsAcc2}.
 
 
-parse_args(ArgSpecs, CmdLine, StopOnOpt) ->
-    parse_args(ArgSpecs, CmdLine, StopOnOpt, #{}).
+parse_args(ArgSpecs, CmdLine, StopOnOpt, From, Env) ->
+    parse_args(ArgSpecs, CmdLine, StopOnOpt, From, Env, #{}).
 
-parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, Acc) ->
+parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, From, Env, Acc) ->
     Type = maps:get(type, H, string),
     NArgs = maps:get(nargs, H, 1),
     if is_integer(NArgs) orelse
        ((NArgs == '+' orelse NArgs == '*') andalso CmdLine0 =/= []) ->
-            case consume_args(CmdLine0, Type, NArgs, Name) of
+            case consume_args(CmdLine0, Type, NArgs) of
                 {ok, CmdLine1, [ArgVal]} when NArgs == 1 ->
-                    parse_args(T, CmdLine1, StopOnOpt, Acc#{Name => ArgVal});
+                    parse_args(T, CmdLine1, StopOnOpt, From, Env,
+                               Acc#{Name => ArgVal});
                 {ok, CmdLine1, ArgVals} ->
-                    parse_args(T, CmdLine1, StopOnOpt, Acc#{Name => ArgVals});
-                Error ->
-                    Error
+                    parse_args(T, CmdLine1, StopOnOpt, From, Env,
+                               Acc#{Name => ArgVals});
+                {error, {Tag, Details}} ->
+                    %% Add From to the error message
+                    case is_completion(Env) of
+                        true when Tag == missing_args ->
+                            parse_args([], CmdLine0, StopOnOpt, From, Env, Acc);
+                        _ ->
+                            case From of
+                                {cmd, CmdStr} ->
+                                    %% for commands, we print the arg
+                                    %% in the error
+                                    MV = arg_metavar_env(H, Env),
+                                    {error, {Tag, {arg, MV, CmdStr}, Details}};
+                                _ ->
+                                    {error, {Tag, From, Details}}
+                            end
+                    end
             end;
        (NArgs == '?' orelse NArgs == '*') andalso CmdLine0 =:= [] ->
             Val = maps:get(default, H, undefined),
-            parse_args(T, CmdLine0, StopOnOpt, Acc#{Name => Val});
+            parse_args(T, CmdLine0, StopOnOpt, From, Env, Acc#{Name => Val});
        NArgs == '?' ->
             [Str | CmdLine1] = CmdLine0,
-            case match_arg(Str, Type, Name, StopOnOpt) of
+            case match_arg(Str, Type, StopOnOpt) of
                 {ok, ArgVal} ->
-                    parse_args(T, CmdLine1, StopOnOpt, Acc#{Name => ArgVal});
+                    parse_args(T, CmdLine1, StopOnOpt, From, Env,
+                               Acc#{Name => ArgVal});
                 nomatch ->
                     Val = maps:get(default, H, undefined),
-                    parse_args(T, CmdLine0, StopOnOpt, Acc#{Name => Val});
+                    parse_args(T, CmdLine0, StopOnOpt, From, Env,
+                               Acc#{Name => Val});
                 Error ->
                     Error
             end;
        NArgs == '+' andalso CmdLine0 == [] ->
-            {error, {expected_argument, Name}}
+            case is_completion(Env) of
+                false ->
+                    {error, {expected_arg, From}};
+                true ->
+                    parse_args(T, CmdLine0, StopOnOpt, From, Env, Acc)
+            end
     end;
-parse_args([], CmdLine, _, Acc) ->
+parse_args([], CmdLine, _, _, _, Acc) ->
     {ok, CmdLine, Acc}.
 
-consume_args(Args, Type, NArgs, Name) ->
+consume_args(Args, Type, NArgs) ->
     N = if is_integer(NArgs) ->
                 NArgs;
            true ->
                 -1
         end,
-    do_consume_args(Args, Type, N, Name, []).
+    do_consume_args(Args, Type, N, []).
 
-do_consume_args([], _, NArgs, _, Acc) when NArgs =< 0 ->
+do_consume_args([], _, NArgs, Acc) when NArgs =< 0 ->
     {ok, [], lists:reverse(Acc)};
-do_consume_args(CmdLine, _, 0, _, Acc) ->
+do_consume_args(CmdLine, _, 0, Acc) ->
     {ok, CmdLine, lists:reverse(Acc)};
-do_consume_args([H | T], Type, N, Name, Acc) ->
-    case match_arg(H, Type, Name, false) of
+do_consume_args([H | T], Type, N, Acc) ->
+    case match_arg(H, Type, false) of
         {ok, ArgVal} ->
-            do_consume_args(T, Type, N-1, Name, [ArgVal | Acc]);
+            do_consume_args(T, Type, N-1, [ArgVal | Acc]);
         Error ->
             Error
     end;
-do_consume_args(_, _, NArgs, Name, _) ->
-    {error, {missing_args, Name, NArgs}}.
+do_consume_args(_, _, NArgs, _) ->
+    {error, {missing_args, NArgs}}.
 
 %% Match a given argument string to the expected type.
-match_arg([$- | _], _, _, _StopOnOpt = true) ->
+match_arg([$- | _], _, _StopOnOpt = true) ->
     %% this means that we're parsing an *optional* argument
     %% to an option.  e.g., "--foo --bar" - is "--bar" an argument
     %% to "--foo" or a separate option.  we treat it as a separate option.
     nomatch;
-match_arg(Arg, string, _, _) ->
+match_arg(Arg, string, _) ->
     {ok, Arg};
-match_arg(Arg, Type, Name, _) ->
+match_arg(Arg, Type, _) ->
     try
         case Type of
             string ->
@@ -1015,7 +1060,7 @@ match_arg(Arg, Type, Name, _) ->
         end
     catch
         _:_ ->
-            {error, {bad_arg, Arg, Type, Name}}
+            {error, {bad_arg, {Arg, Type}}}
     end.
 
 to_float(Str) ->
@@ -1157,14 +1202,23 @@ fmt_opt_metavar(Opt, MStyle) ->
 fmt_args_metavars(Args, MStyle) ->
     lists:join(" ", [fmt_arg_metavar(A, MStyle) || A <- Args]).
 
-fmt_arg_metavar(#{name := Name} = A, MStyle) ->
-    MVar = maps:get(metavar, A, fmt_metavar(?a2l(Name), MStyle)),
+fmt_arg_metavar(A, MStyle) ->
+    MVar = arg_metavar(A, MStyle),
     case maps:get(nargs, A, 1) of
         '?' -> [$[, MVar, $]];
         '*' -> [$[, MVar, $], "..."];
         '+' -> [MVar, "..."];
         N   -> lists:join(" ", lists:duplicate(N, MVar))
     end.
+
+arg_metavar(#{metavar := MVar}, _MStyle) ->
+    MVar;
+arg_metavar(#{name := Name}, MStyle) ->
+    fmt_metavar(?a2l(Name), MStyle).
+
+arg_metavar_env(Arg, {_, ParseOpts}) ->
+    MStyle = maps:get(metavar_style, ParseOpts, caps),
+    arg_metavar(Arg, MStyle).
 
 %% Format each command as:
 %%   CMDSTR      HELP
@@ -1263,10 +1317,39 @@ first_sentence([]) ->
 split_lines(Str) ->
     re:split(Str, "\n", [{return, list}]).
 
-fmt_error({error, {cb_error, ErrMsg, _}}) ->
+fmt_error({error, Reason}) ->
+    fmt_error(Reason);
+fmt_error({cb_error, ErrMsg, _}) ->
     ErrMsg;
+fmt_error({unexpected_args, CmdStr, [Word | _CmdLine]}) ->
+    io_lib:format("unexpected argument \"~s\" to ~s", [Word, CmdStr]);
+fmt_error({expected_subcmd, CmdStr}) ->
+    io_lib:format("expected subcommand to ~s", [CmdStr]);
+fmt_error({unknown_param, CmdStr, Param}) ->
+    io_lib:format("unrecognized parameter \"~s\" to ~s", [Param, CmdStr]);
+fmt_error({opt_needs_argument, CmdStr, Opt}) ->
+    io_lib:format("option ~s to ~s needs an argument", [Opt, CmdStr]);
+fmt_error({opt_already_given, CmdStr, Opt}) ->
+    io_lib:format("option ~s is already given to ~s", [Opt, CmdStr]);
+fmt_error({unknown_opt, CmdStr, Opt}) ->
+    io_lib:format("unrecognized option \"~s\" to ~s", [Opt, CmdStr]);
+fmt_error({expected_arg, From}) ->
+    io_lib:format("expected argument to ~s", [fmt_from(From)]);
+fmt_error({missing_args, From, _NArgs}) ->
+    io_lib:format("expected argument to ~s", [fmt_from(From)]);
+fmt_error({bad_arg, From, {Arg, _Type}}) ->
+    io_lib:format("bad value \"~s\" for ~s", [Arg, fmt_from(From)]);
 fmt_error(Error) ->
     io_lib:format("~p", [Error]).
+
+fmt_from({cmd, CmdStr}) ->
+    ["command ", CmdStr];
+fmt_from({opt, short, #{short := Ch}}) ->
+    ["option -", Ch];
+fmt_from({opt, long, #{long := Str}}) ->
+    ["option --", Str];
+fmt_from({arg, A, CmdStr}) ->
+    ["argument ", A, " to command ", CmdStr].
 
 
 %%% Completion

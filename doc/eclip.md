@@ -289,7 +289,8 @@ argument can be given.
           default_completion_opt => boolean, <span style="color:indianred">% default is 'true'</span>
 
           <span style="color:indianred">%% If `print_usage_on_error` is set to 'true', a message will</span>
-          <span style="color:indianred">%% be printed to stderr if parsing of the command line failed.</span>
+          <span style="color:indianred">%% be printed to stderr if parsing of the command line failed,</span>
+          <span style="color:indianred">%% and the command will exit with code 1.</span>
           print_usage_on_error => boolean(), <span style="color:indianred">% default is 'true'</span>
 
           <span style="color:indianred">%% A user-defined term.  Useful to pass data to callbacks.</span>
@@ -327,6 +328,9 @@ Equivalent to `parse(CmdLine, CmdSpec, #{})`.
   .
 </code></pre>
 Parse a command line of strings according to the `CmdSpec`.
+
+If there is an error in `CmdSpec`, an `error` is raised, on the
+form `{error, term()}`.
 
 If parsing fails, a message is printed to the user, and
 `{error, term()}` is returned.  The message can be suppressed with

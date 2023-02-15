@@ -57,3 +57,24 @@ SH-PROMPT
     ??#{dd => 2,i => 2,name => ["alice","bob"]},
     ?SH-PROMPT
 
+    !./mycmd1 -d foo
+    ?Error: unrecognized parameter "foo" to mycmd1
+    ?SH-PROMPT
+    !echo ==$?==
+    ?==1==
+
+    !./mycmd1 --name
+    ?Error: expected argument to option --name
+    ?SH-PROMPT
+
+    !./mycmd1 -x 42 -x 43
+    ?Error: option -x is already given to mycmd1
+    ?SH-PROMPT
+
+    !./mycmd1 -g
+    ?Error: unrecognized option "-g" to mycmd1
+    ?SH-PROMPT
+
+    !./mycmd1 -i foo
+    ?Error: bad value "foo" for option -i
+    ?SH-PROMPT

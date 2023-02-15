@@ -13,4 +13,18 @@
     [sleep 1]
     ~${_TAB_}
     ?--completion  --help        -h            -i
+    !
+    ?SH-PROMPT
 
+[shell test-errors]
+    !./mycmd2 foo bar
+    ?Error: unexpected argument "bar" to mycmd2
+    ?SH-PROMPT
+
+    !./mycmd2 -i
+    ?Error: expected argument to option -i
+    ?SH-PROMPT
+
+    !./mycmd2 43
+    ?Error: bad value "43" for argument NAME to command mycmd2
+    ?SH-PROMPT

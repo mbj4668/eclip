@@ -1,6 +1,6 @@
 PROJECT = eclip
 PROJECT_DESCRIPTION = Erlang library for command line parsing
-PROJECT_VERSION = 1.0.0-beta.2
+PROJECT_VERSION = 1.0.0-beta.3
 
 TEST_DEPS = lux
 

@@ -46,3 +46,25 @@
     !
     ?SH-PROMPT
     
+[shell test-errors]
+    !./calc
+    ?Error: expected subcommand to calc
+    ?SH-PROMPT
+    !echo ==$?==
+    ?==1==
+    ?SH-PROMPT
+
+    !./calc math
+    ?Error: expected subcommand to math
+    ?SH-PROMPT
+    !echo ==$?==
+    ?==1==
+    ?SH-PROMPT
+
+    !./calc math atan
+    ?Error: unrecognized parameter "atan" to math
+    ?SH-PROMPT
+    !echo ==$?==
+    ?==1==
+    ?SH-PROMPT
+
