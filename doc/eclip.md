@@ -193,9 +193,9 @@ argument can be given.
         <span style="color:indianred">%% A float that falls into one of the given ranges</span>
       | {float, [range(float())]}
         <span style="color:indianred">%% Any integer</span>
-      | integer
+      | int
         <span style="color:indianred">%% An integer that falls into one of the given ranges</span>
-      | {integer, [range(integer())]}
+      | {int, [range(integer())]}
         <span style="color:indianred">%% Any term</span>
       | {custom, fun((string()) -> {ok, term()} | {error, Msg :: string()})}
       .
@@ -206,6 +206,9 @@ argument can be given.
 <pre><code>-type <a href="#type_parse_result">parse_result()</a> ::
         {<span style="color:indianred">%% The name of the selected command or subcommand.</span>
          CmdName :: atom(),
+
+         <span style="color:indianred">%% The parse environment for the selected command or subcommand.</span>
+         Env :: <a href="#type_parse_env">parse_env()</a>,
 
          <span style="color:indianred">%% The options given to `CmdName`.</span>
          Opts :: <a href="#type_result_opts">result_opts()</a>,
@@ -257,7 +260,7 @@ argument can be given.
 <pre><code>-type <a href="#type_argval">argval()</a> ::
         string()   <span style="color:indianred">% if argtype is 'string'</span>
       | atom()     <span style="color:indianred">% if argtype is 'enum'</span>
-      | integer()  <span style="color:indianred">% if argtype is 'integer'</span>
+      | integer()  <span style="color:indianred">% if argtype is 'int'</span>
       | float()    <span style="color:indianred">% if argtype is 'float'</span>
       | term()     <span style="color:indianred">% if argtype is 'custom'</span>
       .
@@ -278,6 +281,10 @@ argument can be given.
           <span style="color:indianred">%% If `default_help_opt` is set to `true`, `-h|--help` is added to</span>
           <span style="color:indianred">%% the command and all subcommands.</span>
           default_help_opt => boolean(), <span style="color:indianred">% default is 'true'</span>
+
+          <span style="color:indianred">%% If `default_completion_opt` is set to `true`, `--completion`</span>
+          <span style="color:indianred">%% is added to the command.</span>
+          default_completion_opt => boolean, <span style="color:indianred">% default is 'true'</span>
 
           <span style="color:indianred">%% If `print_usage_on_error` is set to 'true', a message will</span>
           <span style="color:indianred">%% be printed to stderr if parsing of the command line failed.</span>
@@ -347,4 +354,10 @@ Returns the option spec for `-h|--help`.
 <pre><code>-spec <a href="#type_default_version_opt">default_version_opt()</a> -> <a href="#type_opt">opt()</a>.
 </code></pre>
 Returns the option spec for `--version`.
+
+### <a name="func_default_completion_opt">default_completion_opt/0</a>
+
+<pre><code>-spec <a href="#type_default_completion_opt">default_completion_opt()</a> -> <a href="#type_opt">opt()</a>.
+</code></pre>
+Returns the option spec for `--completion`.
 

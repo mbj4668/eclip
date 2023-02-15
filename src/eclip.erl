@@ -5,7 +5,9 @@
 -export([parse/2, parse/3]).
 -export([fmt_help/2, print_help/3]).
 
--export([default_help_opt/0, default_version_opt/0]).
+-export([default_help_opt/0,
+         default_version_opt/0,
+         default_completion_opt/0]).
 
 -export_type([cmd/0, cmdgroup/0,
               opt/0, optgroup/0,
@@ -141,6 +143,8 @@
 
           required => boolean(), % default is `false`
 
+          %% If `expose_value` is `false`, then the option is not included
+          %% in the arguemts to callbacks with arity > 1.
           expose_value => boolean(), % default is `true`
 
           %% If the option is found, the callback is invoked.  The callback
@@ -199,9 +203,9 @@
         %% A float that falls into one of the given ranges
       | {float, [range(float())]}
         %% Any integer
-      | integer
+      | int
         %% An integer that falls into one of the given ranges
-      | {integer, [range(integer())]}
+      | {int, [range(integer())]}
         %% Any term
       | {custom, fun((string()) -> {ok, term()} | {error, Msg :: string()})}
       .
@@ -211,6 +215,9 @@
 -type parse_result() ::
         {%% The name of the selected command or subcommand.
          CmdName :: atom(),
+
+         %% The parse environment for the selected command or subcommand.
+         Env :: parse_env(),
 
          %% The options given to `CmdName`.
          Opts :: result_opts(),
@@ -243,7 +250,7 @@
 -type argval() ::
         string()   % if argtype is 'string'
       | atom()     % if argtype is 'enum'
-      | integer()  % if argtype is 'integer'
+      | integer()  % if argtype is 'int'
       | float()    % if argtype is 'float'
       | term()     % if argtype is 'custom'
       .
@@ -267,6 +274,10 @@
           %% the command and all subcommands.
           default_help_opt => boolean(), % default is 'true'
 
+          %% If `default_completion_opt` is set to `true`, `--completion`
+          %% is added to the command.
+          default_completion_opt => boolean, % default is 'true'
+
           %% If `print_usage_on_error` is set to 'true', a message will
           %% be printed to stderr if parsing of the command line failed.
           print_usage_on_error => boolean(), % default is 'true'
@@ -282,6 +293,7 @@ default_help_opt() ->
       expose_value => false, cb => fun cmd_help/2,
       help => "Show this help and exit"}.
 
+-spec cmd_help(parse_env(), result_opts()) -> no_return().
 cmd_help({CmdSpec, ParseOpts}, _) ->
     print_help(standard_io, CmdSpec, ParseOpts),
     throw({done, ok}).
@@ -290,10 +302,34 @@ cmd_help({CmdSpec, ParseOpts}, _) ->
 %% Returns the option spec for `--version`.
 default_version_opt() ->
     #{name => version, long => "version", type => flag,
-      expose_value => false, cb => fun cmd_version/2}.
+      expose_value => false, cb => fun cmd_version/2,
+      help => "Print current version and exit"}.
 
+-spec cmd_version(parse_env(), result_opts()) -> no_return().
 cmd_version({#{name := Cmd}, #{version := Vsn}}, _) ->
     io:format("~ts ~ts\n", [Cmd, Vsn]),
+    throw({done, ok}).
+
+-spec default_completion_opt() -> opt().
+%% Returns the option spec for `--completion`.
+default_completion_opt() ->
+    #{name => completion, long => "completion",
+      args => [#{name => shell, type => {enum, [bash, zsh]}, nargs => '?'}],
+      expose_value => false,
+      help => "Print sourceable bash/zsh completion script. "
+              "If no parameter is given, a guess will be made based on $SHELL.",
+      cb => fun cmd_completion/2}.
+
+-spec cmd_completion(parse_env(), result_opts()) -> no_return().
+cmd_completion({#{cmd := Cmd}, _}, ResultOpts) ->
+    Shell =
+        case maps:find(completion, ResultOpts) of
+            {ok, #{shell := Shell0}} when Shell0 /= undefined ->
+                Shell0;
+            _ ->
+                try_detect_shell()
+        end,
+    print_completion_script(Cmd, Shell),
     throw({done, ok}).
 
 %% @parse/2
@@ -334,29 +370,53 @@ parse(CmdName, Cmd) ->
 %%
 %% Otherwise, parsing succeeds and no callback was invoked, the
 %% `parse` function returns `{ok, parse_result()}`.
-parse(CmdLine, Cmd0, ParseOpts) ->
+parse(CmdLine0, Cmd0, ParseOpts0) ->
     Cmd1 =
-        case maps:is_key(version, ParseOpts) of
+        case maps:is_key(version, ParseOpts0) of
             true ->
                 add_opt(default_version_opt(), Cmd0);
             false ->
                 Cmd0
         end,
+    Cmd2 =
+        case maps:get(default_completion_opt, ParseOpts0, true) of
+            true ->
+                add_opt(default_completion_opt(), Cmd1);
+            false ->
+                Cmd1
+        end,
     try
-        Cmd2 = prepare_main_cmd(Cmd1),
-        case parse_cmd(CmdLine, Cmd2, ParseOpts, []) of
+        Cmd3 = prepare_main_cmd(Cmd2),
+        {IsCompletion, CmdLine, ParseOpts} =
+            case os:getenv("COMP_LAST_WORD") of
+                false ->
+                    {false, CmdLine0, ParseOpts0};
+                "" ->
+                    CmdLine1 = tl(CmdLine0),
+                    {true, CmdLine1, ParseOpts0#{'_comp_word' => undefined}};
+                CompWord ->
+                    CmdLine1 = lists:reverse(tl(lists:reverse(tl(CmdLine0)))),
+                    {true, CmdLine1, ParseOpts0#{'_comp_word' => CompWord}}
+            end,
+        case parse_cmd(CmdLine, Cmd3, ParseOpts, []) of
+            {ok, ParseRes} when IsCompletion ->
+                print_suggestions(ParseRes),
+                halt(0);
+            _ when IsCompletion ->
+                halt(1);
             {error, _} = Error ->
                 case maps:get(print_usage_on_error, ParseOpts, true) of
                     true ->
-                        io:put_chars(standard_error,
-                                     [fmt_error(Error),
-                                      ?nl,
-                                      fmt_error_usage(Cmd2, ParseOpts)]);
+                        io:put_chars(
+                          standard_error,
+                          [fmt_error(Error),
+                           ?nl,
+                           fmt_error_usage(Cmd3, ParseOpts)]);
                     false ->
                         ok
                 end,
                 case Error of
-                    {error, {cb_error, _, Reason}} -> % unwrap the cb err
+                    {error, {cb_error, _, Reason}} -> % unwrap cb err
                         {error, Reason};
                     _ ->
                         Error
@@ -411,6 +471,10 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
             Error
     end.
 
+handle_parsed_cmd(#{name := CmdName},
+                  {_, #{'_comp_word' := _}} = Env,
+                  ResultOpts, ResultArgs, CmdStack) ->
+    {ok, {CmdName, Env, ResultOpts, ResultArgs, CmdStack}};
 handle_parsed_cmd(#{name := CmdName, require_cmd := true}, _, _, _, _) ->
     {error, {expected_subcmd, CmdName}};
 handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
@@ -438,7 +502,7 @@ handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
                     CbRes
             end;
         _ ->
-            {ok, {CmdName, ResultOpts, ResultArgs, CmdStack}}
+            {ok, {CmdName, Env, ResultOpts, ResultArgs, CmdStack}}
     end.
 
 set_defaults([#{name := Name, default := Default} | T], ResultMap) ->
@@ -569,7 +633,7 @@ prepare_opts([Opt0 | T]) ->
                 Opt1;
             #{default := Default} ->
                 if is_integer(Default) ->
-                        Opt1#{type => integer};
+                        Opt1#{type => int};
                    is_float(Default) ->
                         Opt1#{type => float};
                    true ->
@@ -619,9 +683,9 @@ validate_arg_type(Name, Type) ->
                          end, Regexps);
             {enum, Enums} ->
                 lists:all(fun(E) -> is_atom(E) end, Enums);
-            integer ->
+            int ->
                 ok;
-            {integer, Ranges} when is_list(Ranges) ->
+            {int, Ranges} when is_list(Ranges) ->
                 ok;
             float ->
                 ok;
@@ -655,6 +719,8 @@ prepare_cmds([{group, _, Cmds} | T], Acc) ->
     prepare_cmds(Cmds ++ T, Acc);
 prepare_cmds([#{cmd := CmdStr} = Cmd | T], Acc) ->
     prepare_cmds(T, Acc#{CmdStr => prepare_cmd(Cmd)});
+prepare_cmds([Cmd | _], _) ->
+    error({invalid_cmd, Cmd, {missing, cmd}});
 prepare_cmds([], Acc) ->
     Acc.
 
@@ -821,10 +887,17 @@ handle_opt(#{name := Name} = Opt, CmdLine0, OptsAcc, Env) ->
     end.
 
 ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env) ->
+    IsCompletion =
+        case Env of
+            {_, #{'_comp_word' := _}} ->
+                true;
+            _ ->
+                false
+        end,
     OptsAcc1 = OptsAcc0#{Name => NewVal},
     OptsAcc2 =
         case Opt of
-            #{cb := Cb} ->
+            #{cb := Cb} when not IsCompletion ->
                 Cb(Env, OptsAcc1);
             _ ->
                 OptsAcc1
@@ -906,7 +979,6 @@ match_arg(Arg, Type, Name, _) ->
             {string, Regexps} ->
                 true = lists:all(
                          fun(Re) -> case re:run(Arg, Re) of
-                                        match -> true;
                                         {match, _} -> true;
                                         _ -> false
                                     end
@@ -916,18 +988,18 @@ match_arg(Arg, Type, Name, _) ->
                 ArgAtom = list_to_existing_atom(Arg),
                 true = lists:member(ArgAtom, Enums),
                 {ok, ArgAtom};
-            integer ->
+            int ->
                 Val = list_to_integer(Arg),
                 {ok, Val};
-            {integer, Ranges} ->
+            {int, Ranges} ->
                 Val = list_to_integer(Arg),
                 chk_ranges(Ranges, Val),
                 {ok, Val};
             float ->
-                Val = list_to_float(Arg),
+                Val = to_float(Arg),
                 {ok, Val};
             {float, Ranges} ->
-                Val = list_to_float(Arg),
+                Val = to_float(Arg),
                 chk_ranges(Ranges, Val),
                 {ok, Val};
             {custom, Fun} ->
@@ -942,6 +1014,16 @@ match_arg(Arg, Type, Name, _) ->
         _:_ ->
             {error, {bad_arg, Arg, Type, Name}}
     end.
+
+to_float(Str) ->
+    try list_to_integer(Str) of
+        Int ->
+            Int / 1.0
+    catch
+        _:_ ->
+            list_to_float(Str)
+    end.
+
 
 chk_ranges([Val | _], Val) ->
     ok;
@@ -1182,3 +1264,90 @@ fmt_error({error, {cb_error, ErrMsg, _}}) ->
     ErrMsg;
 fmt_error(Error) ->
     io_lib:format("~p", [Error]).
+
+
+%%% Completion
+
+print_suggestions({_CmdName, {Cmd, ParseOpts}, ResultOpts, _, _}) ->
+    #{'_comp_word' := CompWord} = ParseOpts,
+    AllSuggestions =
+        lists:sort(suggested_subcommands(maps:get(cmds, Cmd, []))) ++
+        lists:sort(suggested_options(maps:get(opts, Cmd, []), ResultOpts)),
+    Suggestions =
+        if CompWord == undefined ->
+                AllSuggestions;
+           true ->
+                [S || S <- AllSuggestions,
+                      lists:prefix(CompWord, S)]
+        end,
+    lists:foreach(
+      fun(S) ->
+              io:put_chars([S, "\n"])
+      end, Suggestions).
+
+suggested_options([#{multiple := true} = Opt | T], ResultOpts) ->
+    suggest_opt(Opt, T, ResultOpts);
+suggested_options([#{name := Name} = Opt | T], ResultOpts) ->
+    case maps:is_key(Name, ResultOpts) of
+        true ->
+            suggested_options(T, ResultOpts);
+        false ->
+            suggest_opt(Opt, T, ResultOpts)
+    end;
+suggested_options([{group, _, Opts} | T], ResultOpts) ->
+    suggested_options(Opts ++ T, ResultOpts);
+suggested_options([], _) ->
+    [].
+
+suggest_opt(Opt, T, ResultOpts) ->
+    case Opt of
+        #{short := Ch, long := Long} ->
+            [[$-, Ch], [$-, $-, Long] | suggested_options(T, ResultOpts)];
+        #{short := Ch} ->
+            [[$-, Ch] | suggested_options(T, ResultOpts)];
+        #{long := Long} ->
+            [[$-, $- | Long] | suggested_options(T, ResultOpts)]
+    end.
+
+suggested_subcommands([#{cmd := Cmd} | T]) ->
+    [Cmd | suggested_subcommands(T)];
+suggested_subcommands([{group, _, Cmds} | T]) ->
+    suggested_subcommands(Cmds ++ T);
+suggested_subcommands([]) ->
+    [].
+
+print_completion_script(Cmd, bash) ->
+    AbsName = filename:absname(hd(init:get_plain_arguments())),
+    io:format("_~s() {\n"
+              "  COMPREPLY=($(COMP_LAST_WORD=${COMP_WORDS[COMP_CWORD]} "
+              "~s ${COMP_WORDS[@]}))\n"
+              "  return 0\n"
+              "}\n"
+              "\n"
+              "complete -o nosort -F _~s ~s\n",
+              [Cmd, AbsName, Cmd, Cmd]);
+print_completion_script(Cmd, zsh) ->
+    AbsName = filename:absname(hd(init:get_plain_arguments())),
+    io:format("_~s() {\n"
+              "  sugg=(\"${(@f)$(COMP_LAST_WORD=${words[-1]} ~s $words)}\")\n"
+              "  compadd -V unsorted -a sugg\n"
+              "  return 0\n"
+              "}\n"
+              "\n"
+              "compdef _~s ~s\n",
+              [Cmd, AbsName, Cmd, Cmd]);
+print_completion_script(_, _) ->
+    io:put_chars("Unknown shell - cannot generate completion script\n"),
+    halt(1).
+
+try_detect_shell() ->
+    case os:getenv("SHELL") of
+        false ->
+            unknown;
+        SHELL ->
+            case filename:basename(SHELL) of
+                "bash" -> bash;
+                "zsh" -> zsh;
+                _ -> unknown
+            end
+    end.

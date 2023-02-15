@@ -1,5 +1,9 @@
 [doc test the example in README.md]
 
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
 [shell test]
     !./hello --name Martin --count 3
 """??
@@ -17,8 +21,15 @@ Usage: hello [OPTIONS]
 
 Options:
   -h, --help                 Show this help and exit
+      --completion [SHELL]   Print sourceable bash/zsh completion script. If no
+                             parameter is given, a guess will be made based on
+                             $$SHELL.
       --name NAME            The person to greet
       --count COUNT          Number of greetings
 SH-PROMPT
 """
-      
+
+    !source <(./hello --completion bash)
+    ?SH-PROMPT
+    ~./hello --n$_TAB_
+    ?./hello --name

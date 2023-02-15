@@ -10,12 +10,15 @@ main(Args) ->
             "brackets" -> brackets;
             _ -> caps
         end,
-    R = eclip:parse(Args, spec(), #{metavar_style => MVarStyle}),
+    ParseOpts =
+        #{metavar_style => MVarStyle,
+          default_completion_opt => false},
+    R = eclip:parse(Args, spec(), ParseOpts),
     io:format("R: ~p\n", [R]).
 
 spec() ->
     #{opts => [#{short => $i,
-                 type => {integer, [2, {4, 6}]},
+                 type => {int, [2, {4, 6}]},
                  help => "An integer"},
                {group, "Other options",
                 [

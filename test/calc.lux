@@ -1,0 +1,39 @@
+[doc test the example in README.md]
+
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
+[shell test]
+    !./calc sum 1 2 3
+    ?6
+    ?SH-PROMPT
+
+    !./calc math cos 1.2
+    ?0.3623577544766736
+    ?SH-PROMPT
+
+    !./calc math sin 1
+    ?0.8414709848078965
+    ?SH-PROMPT
+
+    !source <(./calc --completion bash)
+    ?SH-PROMPT
+
+# I can't get this to work in lux.  Why??
+#    ~./calc ${_TAB_}${_TAB_}
+#    ?div           sum           --help
+#    ?math          --completion  -h
+#    !
+#    ?SH-PROMPT
+
+    ~./calc m${_TAB_}
+    ?./calc math
+    !
+    ?SH-PROMPT
+
+#    ~./calc math ${_TAB_}${_TAB_}
+#    ?cos     sin     tan     --help  -h
+#    !
+#    ?SH-PROMPT
+    

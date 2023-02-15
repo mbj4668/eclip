@@ -1,0 +1,48 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../ebin
+
+-mode(compile).
+
+%%% calculator, demonstrating subcommands, and callback specifications
+%%% original code in https://github.com/max-au/argparse
+
+main(Args) ->
+    case eclip:parse(Args, spec(), #{}) of
+        {done, _} ->
+            ok;
+        R ->
+            io:format("~p\n", [R])
+    end.
+
+spec() ->
+    #{require_cmd => true,
+      cmds =>
+          [#{cmd => "sum",
+             args => [#{name => term, type => int, nargs => '+'}],
+             cb => fun(_, _, Terms) -> lists:sum(Terms) end},
+           #{cmd => "div",
+             args => [#{name => denominator, type => float},
+                      #{name => numerator, type => float}],
+             cb => fun(_, _, D, N) -> D / N end},
+           #{cmd => "math",
+             require_cmd => true,
+             cmds =>
+                 [#{cmd => "sin",
+                    args => [#{name => num, type => float}],
+                    cb => fun do_sin/3},
+                  #{cmd => "cos",
+                    args => [#{name => num, type => float}],
+                    cb => fun do_cos/3},
+                  #{cmd => "tan",
+                    args => [#{name => num, type => float}],
+                    cb => fun do_tan/3}]}]}.
+
+do_sin(_, _, Num) ->
+    math:sin(Num).
+
+do_cos(_, _, Num) ->
+    math:cos(Num).
+
+do_tan(_, _, Num) ->
+    math:tan(Num).
