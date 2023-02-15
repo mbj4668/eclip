@@ -332,6 +332,8 @@ a command with two levels of subcommands:
 %% -*- erlang -*-
 %%! -pa ../ebin
 
+%% eclip version of original example in https://github.com/max-au/argparse
+
 -mode(compile).
 
 main(Args) ->
@@ -427,5 +429,5 @@ cos     sin     tan     --help  -h
 - argparse - doesn't handle subcommands as truly separate commands,
                e.g. doesn't allow `cmd -f subcmd -f`;
              chatty syntax;
-             doens't handle option / command groups
+             doesn't handle option / command groups;
              no completion
