@@ -1396,7 +1396,7 @@ suggested_options([], _) ->
 suggest_opt(Opt, T, ResultOpts) ->
     case Opt of
         #{short := Ch, long := Long} ->
-            [[$-, Ch], [$-, $-, Long] | suggested_options(T, ResultOpts)];
+            [[$-, Ch], [$-, $- | Long] | suggested_options(T, ResultOpts)];
         #{short := Ch} ->
             [[$-, Ch] | suggested_options(T, ResultOpts)];
         #{long := Long} ->

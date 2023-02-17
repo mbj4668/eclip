@@ -1,0 +1,22 @@
+[doc test completion of long options]
+
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
+[shell test]
+    !source <(./mycmd3 --completion bash)
+    ?SH-PROMPT:
+    ~./mycmd3 --n
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?umber-of-
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?--number-of-hosts  --number-of-sites
+    !
+    ?SH-PROMPT
