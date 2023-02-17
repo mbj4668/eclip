@@ -119,7 +119,9 @@ extract_def() {
         sub("^%+", "");
         sub("^(\\s)+", "");
         $0 = colorize_comment($0);
-        print_with_links($0);
+        ## NOTE: we cannot add links here; since they appear within ``.
+        #print_with_links($0);
+        print
         next;
     }
 

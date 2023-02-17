@@ -40,16 +40,8 @@ Specifies the main command and subcommands.
           <span style="color:indianred">%% Default is the first sentence of `help`.</span>
           short_help => string(),
 
-          <span style="color:indianred">%% If a callback is given, it must have arity</span>
-          <span style="color:indianred">%% 1 or arity 2 + number of options + number of arguments.</span>
-          <span style="color:indianred">%% The first parameter is <a href="#type_parse_env">parse_env()</a> (where <a href="#type_cmd">cmd()</a> is the</span>
-          <span style="color:indianred">%% spec for this cmd).</span>
-          <span style="color:indianred">%% The second parameter is <a href="#type_result_cmd_stack">result_cmd_stack()</a>, i.e., the result of</span>
-          <span style="color:indianred">%% parsing all ancestor commands.</span>
-          <span style="color:indianred">%% Then follows each option value, and then each argument value.</span>
-          cb => fun(({<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_cmd_stack">result_cmd_stack()</a>,
-                      <a href="#type_result_opts">result_opts()</a>, <a href="#type_result_args">result_args()</a>}) -> term()) |
-                fun(),
+          <span style="color:indianred">%% Optional callback that implements the command or subcommand.</span>
+          cb => <a href="#type_cmd_cb">cmd_cb()</a>,
 
           <span style="color:indianred">%% If `auto_help` is `false`, -h|--help isn't automatically</span>
           <span style="color:indianred">%% prepended to `opts`.</span>
@@ -135,10 +127,8 @@ fields.
           <span style="color:indianred">%% in the arguemts to callbacks with arity > 1.</span>
           expose_value => boolean(), <span style="color:indianred">% default is `true`</span>
 
-          <span style="color:indianred">%% If the option is found, the callback is invoked.  The callback</span>
-          <span style="color:indianred">%% can throw `{done, term()}` to stop parsing.  This is useful</span>
-          <span style="color:indianred">%% e.g., to implement `--version` or `--help`.</span>
-          cb => fun((<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_opts">result_opts()</a>) -> <a href="#type_result_opts">result_opts()</a>)
+          <span style="color:indianred">%% If the option is found, the callback is invoked.</span>
+          cb => <a href="#type_opt_cb">opt_cb()</a>
           }.
 </code></pre>
 
@@ -184,8 +174,12 @@ argument can be given.
 ### <a name="type_argtype">argtype()</a>
 
 <pre><code>-type <a href="#type_argtype">argtype()</a> ::
+        <span style="color:indianred">%% A string that represents a directory (helps completion)</span>
+        dir
+        <span style="color:indianred">%% A string that represents a filename (helps completion)</span>
+      | file
         <span style="color:indianred">%% Any string</span>
-        string
+      | string
         <span style="color:indianred">%% A string that matches all of the given regexps</span>
       | {string, [Regexp :: string()]}
         <span style="color:indianred">%% One of the given strings</span>
@@ -201,6 +195,37 @@ argument can be given.
         <span style="color:indianred">%% Any term</span>
       | {custom, fun((string()) -> {ok, term()} | {error, Msg :: string()})}
       .
+</code></pre>
+
+### <a name="type_cmd_cb">cmd_cb()</a>
+
+A callback function in a `cmd`.  It is invoked when a command or
+subcommand is selected by the user.
+
+The callback must have arity 1 or arity 2 + number of options +
+number of arguments.  The spec for arity 1 is given below in the type,
+and for the other case, the function is called as:
+
+- The first parameter is `parse_env()` (where `cmd()` is the
+spec for this cmd).
+- The second parameter is `result_cmd_stack()`, i.e., the result of
+parsing all ancestor commands.
+- Then follows each option value, and then each argument value; these
+are `undefined` if not given or have defaults.
+<pre><code>-type <a href="#type_cmd_cb">cmd_cb()</a> ::
+        fun(({<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_cmd_stack">result_cmd_stack()</a>,
+                      <a href="#type_result_opts">result_opts()</a>, <a href="#type_result_args">result_args()</a>}) ->
+                   <a href="#type_cmd_cb_res">cmd_cb_res()</a>)
+      | fun((...) -> <a href="#type_cmd_cb_res">cmd_cb_res()</a>).
+</code></pre>
+
+### <a name="type_cmd_cb_res">cmd_cb_res()</a>
+
+The return value of a callback defined in `cmd`.
+
+<pre><code>-type <a href="#type_cmd_cb_res">cmd_cb_res()</a> ::
+        Res :: term()
+      | {error, ErrMsg :: string(), Error :: term()}.
 </code></pre>
 
 ### <a name="type_parse_result">parse_result()</a>
@@ -340,12 +365,12 @@ If the selected command (main or subcommand) has a callback defined,
 the return value from the callback is returned, unless it returns
 `{error, ErrMsg :: iodata(), Reason :: term()}`, in which case
 parsing fails and `ErrMsg` is printed to the user (see above), and
-`<a href="#type_parse">parse()</a>` returns `{error, Reason}`.
+`parse()` returns `{error, Reason}`.
 
 If any option's callback throws `{done, term()}`, this is returned.
 
 Otherwise, parsing succeeds and no callback was invoked, the
-`parse` function returns `{ok, <a href="#type_parse_result">parse_result()</a>}`.
+`parse` function returns `{ok, parse_result()}`.
 
 
 

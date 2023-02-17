@@ -12,6 +12,9 @@
 -export_type([cmd/0, cmdgroup/0,
               opt/0, optgroup/0,
               arg/0, argtype/0,
+
+              cmd_cb/0, cmd_cb_res/0,
+
               parse_result/0,
               result_opts/0, result_args/0, result_cmd_stack/0,
               optval/0, argval/0,
@@ -59,16 +62,8 @@
           %% Default is the first sentence of `help`.
           short_help => string(),
 
-          %% If a callback is given, it must have arity
-          %% 1 or arity 2 + number of options + number of arguments.
-          %% The first parameter is parse_env() (where cmd() is the
-          %% spec for this cmd).
-          %% The second parameter is result_cmd_stack(), i.e., the result of
-          %% parsing all ancestor commands.
-          %% Then follows each option value, and then each argument value.
-          cb => fun(({parse_env(), result_cmd_stack(),
-                      result_opts(), result_args()}) -> term()) |
-                fun(),
+          %% Optional callback that implements the command or subcommand.
+          cb => cmd_cb(),
 
           %% If `auto_help` is `false`, -h|--help isn't automatically
           %% prepended to `opts`.
@@ -147,10 +142,8 @@
           %% in the arguemts to callbacks with arity > 1.
           expose_value => boolean(), % default is `true`
 
-          %% If the option is found, the callback is invoked.  The callback
-          %% can throw `{done, term()}` to stop parsing.  This is useful
-          %% e.g., to implement `--version` or `--help`.
-          cb => fun((parse_env(), result_opts()) -> result_opts())
+          %% If the option is found, the callback is invoked.
+          cb => opt_cb()
           }.
 %% Used to define a set of mutually exclusive options.
 %-type optchoice() ::
@@ -192,8 +185,12 @@
                        Max :: T | 'unbounded'}.
 
 -type argtype() ::
+        %% A string that represents a directory (helps completion)
+        dir
+        %% A string that represents a filename (helps completion)
+      | file
         %% Any string
-        string
+      | string
         %% A string that matches all of the given regexps
       | {string, [Regexp :: string()]}
         %% One of the given strings
@@ -209,6 +206,43 @@
         %% Any term
       | {custom, fun((string()) -> {ok, term()} | {error, Msg :: string()})}
       .
+
+%% A callback function in a `cmd`.  It is invoked when a command or
+%% subcommand is selected by the user.
+%%
+%% The callback must have arity 1 or arity 2 + number of options +
+%% number of arguments.  The spec for arity 1 is given below in the type,
+%% and for the other case, the function is called as:
+%%
+%% - The first parameter is `parse_env()` (where `cmd()` is the
+%%   spec for this cmd).
+%% - The second parameter is `result_cmd_stack()`, i.e., the result of
+%%   parsing all ancestor commands.
+%% - Then follows each option value, and then each argument value; these
+%%   are `undefined` if not given or have defaults.
+-type cmd_cb() ::
+        fun(({parse_env(), result_cmd_stack(),
+                      result_opts(), result_args()}) ->
+                   cmd_cb_res())
+      | fun((...) -> cmd_cb_res()).
+
+%% The return value of a callback defined in `cmd`.
+%%
+-type cmd_cb_res() ::
+        Res :: term()
+      | {error, ErrMsg :: string(), Error :: term()}.
+
+
+
+%% A callback function in an `opt`.  It is invoked it the option is
+%% given on the command line.
+%%
+%% The callback is called with the options gathered so far, and it
+%% must either return new options (possibly modified), or stop
+%% parsing by throwing `{done, term()}`.  This is useful
+%% e.g., to implement `--version` or `--help`.
+-type opt_cb() :: fun((parse_env(), result_opts()) -> result_opts()).
+
 
 -type parse_env() :: {cmd(), parse_opts()}.
 
@@ -692,6 +726,10 @@ validate_opt_type(Name, Type) ->
 validate_arg_type(Name, Type) ->
     try
         case Type of
+            dir ->
+                ok;
+            file ->
+                ok;
             string ->
                 ok;
             {string, Regexps} ->
@@ -936,7 +974,13 @@ parse_args(ArgSpecs, CmdLine, StopOnOpt, From, Env) ->
 parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, From, Env, Acc) ->
     Type = maps:get(type, H, string),
     NArgs = maps:get(nargs, H, 1),
-    if is_integer(NArgs) orelse
+    Compword = get_comp_word(Env),
+    if (Type == dir orelse Type == file)
+       andalso CmdLine0  == []
+       andalso (Compword == undefined orelse hd(Compword) /= $-) ->
+            print_special_suggestion(Type),
+            halt(0);
+       is_integer(NArgs) orelse
        ((NArgs == '+' orelse NArgs == '*') andalso CmdLine0 =/= []) ->
             case consume_args(CmdLine0, Type, NArgs) of
                 {ok, CmdLine1, [ArgVal]} when NArgs == 1 ->
@@ -946,11 +990,15 @@ parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, From, Env, Acc) ->
                     parse_args(T, CmdLine1, StopOnOpt, From, Env,
                                Acc#{Name => ArgVals});
                 {error, {Tag, Details}} ->
-                    %% Add From to the error message
+                    IsOpt = case From of
+                                {opt, _, _} -> true;
+                                _ -> false
+                            end,
                     case is_completion(Env) of
-                        true when Tag == missing_args ->
+                        true when Tag == missing_args andalso not IsOpt ->
                             parse_args([], CmdLine0, StopOnOpt, From, Env, Acc);
                         _ ->
+                            %% Add From to the error message
                             case From of
                                 {cmd, CmdStr} ->
                                     %% for commands, we print the arg
@@ -1022,6 +1070,10 @@ match_arg(Arg, string, _) ->
 match_arg(Arg, Type, _) ->
     try
         case Type of
+            dir ->
+                {ok, Arg};
+            file ->
+                {ok, Arg};
             string ->
                 {ok, Arg};
             {string, Regexps} ->
@@ -1362,15 +1414,25 @@ is_completion(Env) ->
             false
     end.
 
-print_suggestions({_CmdName, {Cmd, ParseOpts}, ResultOpts, _, _}) ->
+get_comp_word(Env) ->
+    case Env of
+        {_, #{'_comp_word' := CompWord}} ->
+            CompWord;
+        _ ->
+            false
+    end.
+
+print_suggestions({_CmdName, {Cmd, ParseOpts}, ResultOpts, _ResultArgs, _}) ->
     #{'_comp_word' := CompWord} = ParseOpts,
     AllSuggestions =
         lists:sort(suggested_subcommands(maps:get(cmds, Cmd, []))) ++
         lists:sort(suggested_options(maps:get(opts, Cmd, []), ResultOpts)),
     Suggestions =
         if CompWord == undefined ->
+                %% this means that the user hit <tab> after a space
                 AllSuggestions;
            true ->
+                %% this means that the user hit <tab> right after CompWord
                 [S || S <- AllSuggestions,
                       lists:prefix(CompWord, S)]
         end,
@@ -1378,6 +1440,14 @@ print_suggestions({_CmdName, {Cmd, ParseOpts}, ResultOpts, _, _}) ->
       fun(S) ->
               io:put_chars([S, "\n"])
       end, Suggestions).
+
+print_special_suggestion(Type) ->
+    case Type of
+        dir ->
+            io:put_chars("__DIR__\n");
+        file ->
+            io:put_chars("__FILE__\n")
+    end.
 
 suggested_options([#{multiple := true} = Opt | T], ResultOpts) ->
     suggest_opt(Opt, T, ResultOpts);
@@ -1415,6 +1485,13 @@ print_completion_script(Cmd, bash) ->
     io:format("_~s() {\n"
               "  COMPREPLY=($(COMP_LAST_WORD=${COMP_WORDS[COMP_CWORD]} "
               "~s ${COMP_WORDS[@]}))\n"
+              "  if [ \"${COMPREPLY[0]}\" == \"__DIR__\" ]; then\n"
+              "    compopt -o dirnames\n"
+              "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
+              "  elif [ \"${COMPREPLY[0]}\" == \"__FILE__\" ]; then\n"
+              "    compopt -o default\n"
+              "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
+              "  fi\n"
               "  return 0\n"
               "}\n"
               "\n"
@@ -1424,7 +1501,13 @@ print_completion_script(Cmd, zsh) ->
     AbsName = filename:absname(hd(init:get_plain_arguments())),
     io:format("_~s() {\n"
               "  sugg=(\"${(@f)$(COMP_LAST_WORD=${words[-1]} ~s $words)}\")\n"
-              "  compadd -V unsorted -a sugg\n"
+              "  if [ \"${sugg[1]}\" = \"__DIR__\" ]; then\n"
+              "    _path_files -/\n"
+              "  elif [ \"${sugg[1]}\" = \"__FILE__\" ]; then\n"
+              "    _path_files -f\n"
+              "  else\n"
+              "    compadd -V unsorted -a sugg\n"
+              "  fi\n"
               "  return 0\n"
               "}\n"
               "\n"
