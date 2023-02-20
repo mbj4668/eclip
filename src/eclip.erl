@@ -536,7 +536,6 @@ handle_parsed_cmd(#{cmd := CmdStr, require_cmd := true}, _, _, _, _) ->
     {error, {expected_subcmd, CmdStr}};
 handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
                   ResultOpts, ResultArgs, CmdStack) ->
-    %% FIXME: validate required args etc
     case maps:find(cb, Cmd) of
         {ok, Cb} ->
             CbRes =

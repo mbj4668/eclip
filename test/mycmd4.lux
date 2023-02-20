@@ -1,0 +1,43 @@
+[doc test completion of files and dirs]
+
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
+[shell test]
+    !./mycmd4 -d dd
+    ?Error: expected option "-x" to mycmd4
+    ?SH-PROMPT
+
+    !source <(./mycmd4 --completion bash)
+    ?SH-PROMPT:
+    !cd mycmd4-dir
+    ?SH-PROMPT
+    ~./mycmd4 -
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?-x
+    ~d
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    # a space should now have been completed
+    ?aa
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?aa
+    ~2 -f${_ASCII_32_}
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?aa1/ xx   aa2/ bar  baz
+    ~xx
+    [sleep 1]
+    ~${_TAB_}
+    ?aa

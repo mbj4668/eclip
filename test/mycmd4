@@ -1,0 +1,21 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../ebin -pa ../../ebin
+
+-mode(compile).
+
+main(Args) ->
+    eclip:parse(Args, spec(), #{}).
+
+spec() ->
+    #{opts => [#{short => $d, type => dir},
+               #{short => $f, type => file},
+               #{short => $x, type => string, required => true}],
+      args => [#{name => a, type => dir},
+               #{name => b, nargs => '+'}],
+      cb => fun do_cmd/6}.
+
+do_cmd(_, _, D, F, X, A) ->
+    io:format("D=~p F=~p X=~p A=~p\n", [D, F, X, A]).
+
+
