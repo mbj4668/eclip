@@ -596,8 +596,10 @@ set_defaults0([#{name := Name, required := true} = H | T], ResultMap,
                 case {maps:get(short, H, undef), maps:get(long, H, undef)} of
                     {Ch, undef} ->
                         [$-, Ch];
-                    {_, Long} ->
-                        [$-, $- | Long]
+                    {undef, Long} ->
+                        [$-, $- | Long];
+                    {Ch, Long} ->
+                        [$-, Ch, $\s, $|, $\s, $-, $- | Long]
                 end,
             {error, {expected_opt, CmdStr, OptStr}}
     end;
