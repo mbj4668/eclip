@@ -483,34 +483,46 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
         parse_opts(CmdLine, maps:get(opts, Cmd), CmdStr, Env, #{}, CmdStack)
     of
         {ok, RestCmdLine, ResultOpts0} ->
-            ResultOpts =
-                set_defaults(maps:get(opts, Cmd, []), ResultOpts0, Env),
-            case maps:get(args, Cmd, undefined) of
-                undefined when RestCmdLine =/= [] ->
-                    case maps:get(cmdmap, Cmd, undefined) of
+            case
+                set_defaults(maps:get(opts, Cmd, []), ResultOpts0, CmdStr, Env)
+            of
+                {ok, ResultOpts} ->
+                    case maps:get(args, Cmd, undefined) of
+                        undefined when RestCmdLine =/= [] ->
+                            case maps:get(cmdmap, Cmd, undefined) of
+                                undefined ->
+                                    {error,
+                                     {unexpected_args, CmdStr, RestCmdLine}};
+                                CmdMap ->
+                                    CmdName = maps:get(name, Cmd),
+                                    parse_sub_cmd(RestCmdLine, CmdMap, CmdStr,
+                                                  Env,
+                                                  [{CmdName, ResultOpts} |
+                                                   CmdStack])
+                            end;
                         undefined ->
-                            {error, {unexpected_args, CmdStr, RestCmdLine}};
-                        CmdMap ->
-                            CmdName = maps:get(name, Cmd),
-                            parse_sub_cmd(RestCmdLine, CmdMap, CmdStr, Env,
-                                          [{CmdName, ResultOpts} | CmdStack])
+                            handle_parsed_cmd(Cmd, Env, ResultOpts, #{},
+                                              CmdStack);
+                        Args ->
+                            case
+                                parse_args(Args, RestCmdLine, false,
+                                           {cmd, CmdStr}, Env)
+                            of
+                                {ok, [], ResultArgs0} ->
+                                    {ok, ResultArgs} =
+                                        set_defaults(maps:get(args, Cmd, []),
+                                                     ResultArgs0, CmdStr, Env),
+                                    handle_parsed_cmd(Cmd, Env, ResultOpts,
+                                                      ResultArgs, CmdStack);
+                                {ok, RestCmdLine1, _} ->
+                                    {error,
+                                     {unexpected_args, CmdStr, RestCmdLine1}};
+                                Error ->
+                                    Error
+                            end
                     end;
-                undefined ->
-                    handle_parsed_cmd(Cmd, Env, ResultOpts, #{}, CmdStack);
-                Args ->
-                    case
-                        parse_args(Args, RestCmdLine, false, {cmd, CmdStr}, Env)
-                    of
-                        {ok, [], ResultArgs0} ->
-                            ResultArgs = set_defaults(maps:get(args, Cmd, []),
-                                                      ResultArgs0, Env),
-                            handle_parsed_cmd(Cmd, Env, ResultOpts,
-                                              ResultArgs, CmdStack);
-                        {ok, RestCmdLine1, _} ->
-                            {error, {unexpected_args, CmdStr, RestCmdLine1}};
-                        Error ->
-                            Error
-                    end
+                Error ->
+                    Error
             end;
         Error ->
             Error
@@ -550,25 +562,49 @@ handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
             {ok, {CmdName, Env, ResultOpts, ResultArgs, CmdStack}}
     end.
 
-set_defaults(Items, ResultMap, Env) ->
+set_defaults(Items, ResultMap, CmdStr, Env) ->
     case is_completion(Env) of
         true ->
-            ResultMap;
+            {ok, ResultMap};
         false ->
-            set_defaults0(Items, ResultMap)
+            set_defaults0(Items, ResultMap, CmdStr, Env)
     end.
 
-set_defaults0([#{name := Name, default := Default} | T], ResultMap) ->
+set_defaults0([#{name := Name, default := Default} = H | T], ResultMap0,
+              CmdStr, Env) ->
+    case maps:is_key(Name, ResultMap0) of
+        true ->
+            set_defaults0(T, ResultMap0, CmdStr, Env);
+        false ->
+            ResultMap1 = ResultMap0#{Name => Default},
+            ResultMap2 =
+                case H of
+                    #{cb := Cb} ->
+                        Cb(Env, ResultMap1);
+                    _ ->
+                        ResultMap1
+                end,
+            set_defaults0(T, ResultMap2, CmdStr, Env)
+    end;
+set_defaults0([#{name := Name, required := true} = H | T], ResultMap,
+              CmdStr, Env) ->
     case maps:is_key(Name, ResultMap) of
         true ->
-            set_defaults0(T, ResultMap);
+            set_defaults0(T, ResultMap, CmdStr, Env);
         false ->
-            set_defaults0(T, ResultMap#{Name => Default})
+            OptStr =
+                case {maps:get(short, H, undef), maps:get(long, H, undef)} of
+                    {Ch, undef} ->
+                        [$-, Ch];
+                    {_, Long} ->
+                        [$-, $- | Long]
+                end,
+            {error, {expected_opt, CmdStr, OptStr}}
     end;
-set_defaults0([_ | T], ResultMap) ->
-    set_defaults0(T, ResultMap);
-set_defaults0([], ResultMap) ->
-    ResultMap.
+set_defaults0([_ | T], ResultMap, CmdStr, Env) ->
+    set_defaults0(T, ResultMap, CmdStr, Env);
+set_defaults0([], ResultMap, _CmdStr, _Env) ->
+    {ok, ResultMap}.
 
 get_val(#{name := Name} = Item, ResultItems) ->
     maps:get(Name, ResultItems,
@@ -1385,6 +1421,8 @@ fmt_error({opt_already_given, CmdStr, Opt}) ->
     io_lib:format("option ~s is already given to ~s", [Opt, CmdStr]);
 fmt_error({unknown_opt, CmdStr, Opt}) ->
     io_lib:format("unrecognized option \"~s\" to ~s", [Opt, CmdStr]);
+fmt_error({expected_opt, CmdStr, Opt}) ->
+    io_lib:format("expected option \"~s\" to ~s", [Opt, CmdStr]);
 fmt_error({expected_arg, From}) ->
     io_lib:format("expected argument to ~s", [fmt_from(From)]);
 fmt_error({missing_args, From, _NArgs}) ->
