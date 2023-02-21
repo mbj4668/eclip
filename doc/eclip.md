@@ -83,6 +83,10 @@ from the default value.
 When the parser parses zero, one or several options, the resulting
 erlang term depends on the `type`, `args, `default` and `multiple`
 fields.
+
+In the parse result, each given option, and all opions with default
+values are collected into a map `result_opts()`, which maps the option's
+`name` to an `optval()`.
 <pre><code>-type <a href="#type_opt">opt()</a> ::
         #{
           <span style="color:indianred">%% `name` is used as as an identifier in the parse result</span>
@@ -100,22 +104,26 @@ fields.
           <span style="color:indianred">%% text.</span>
           help => string() | hidden,
 
-          <span style="color:indianred">%% If `multiple` is given, val will either be a list of each</span>
+          <span style="color:indianred">%% If `multiple` is `true`, the option can be given multiple</span>
+          <span style="color:indianred">%% times, and the optval will either be a list of each</span>
           <span style="color:indianred">%% value, or - if `type` is `count` - an integer.</span>
           multiple => boolean(),
 
-          type => flag       <span style="color:indianred">% val is 'true'</span>
-                | boolean    <span style="color:indianred">% --no-<long> is used to disable, val is boolean()</span>
-                | count      <span style="color:indianred">% implies `multiple`, val is integer()</span>
-                | <a href="#type_argtype">argtype()</a>  <span style="color:indianred">% val is <a href="#type_argval">argval()</a></span>
-                | <a href="#type_arg">arg()</a>,     <span style="color:indianred">% val is <a href="#type_argval">argval()</a></span>
+          <span style="color:indianred">%% The type of a single valued option argument.</span>
+          <span style="color:indianred">%% `type` and `args` are mutually exclusive.</span>
+          type => flag       <span style="color:indianred">% optval is 'true'</span>
+                | boolean    <span style="color:indianred">% --no-<long> to disable, optval is boolean()</span>
+                | count      <span style="color:indianred">% implies `multiple`, optval is integer()</span>
+                | <a href="#type_argtype">argtype()</a>  <span style="color:indianred">% optval is <a href="#type_argval">argval()</a></span>
+                | <a href="#type_arg">arg()</a>,     <span style="color:indianred">% optval is <a href="#type_argval">argval()</a></span>
 
           <span style="color:indianred">%% each arg in `args` must have an integer-valued `nargs`, or</span>
           <span style="color:indianred">%% `nargs => '?'`</span>
-          args => [<a href="#type_arg">arg()</a>],   <span style="color:indianred">% val is <a href="#type_result_args">result_args()</a></span>
+          args => [<a href="#type_arg">arg()</a>],   <span style="color:indianred">% optval is <a href="#type_result_args">result_args()</a></span>
 
-          default => term(), <span style="color:indianred">% val is default if not given</span>
+          default => term(), <span style="color:indianred">% optval is this term if the option is not given</span>
 
+          <span style="color:indianred">%% The name of the option in help text.</span>
           <span style="color:indianred">%% Default is `name` in uppercase or in brackets (depending</span>
           <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts()</a>).  Only used if `type`</span>
           <span style="color:indianred">%% is an <a href="#type_argtype">argtype()</a>.</span>
@@ -145,6 +153,10 @@ Specifies a positional argument to a command or option.
 
 An argument has a field `nargs` which specifies how many times the
 argument can be given.
+
+In the parse result, each given argument, and all arguments with
+default values are collected into a map `result_args()`, which maps
+the argument's `name` to an `argval()`.
 <pre><code>-type <a href="#type_arg">arg()</a> ::
         #{
           <span style="color:indianred">%% `name` is used as as an identifier in the parse result.</span>
@@ -167,7 +179,7 @@ argument can be given.
           <span style="color:indianred">%% default is 1</span>
           nargs => pos_integer() | '?' | '*' | '+',
 
-          default => term()
+          default => term() <span style="color:indianred">% argval is this term if the argument is not given</span>
          }.
 </code></pre>
 
@@ -213,9 +225,7 @@ parsing all ancestor commands.
 - Then follows each option value, and then each argument value; these
 are `undefined` if not given or have defaults.
 <pre><code>-type <a href="#type_cmd_cb">cmd_cb()</a> ::
-        fun(({<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_cmd_stack">result_cmd_stack()</a>,
-                      <a href="#type_result_opts">result_opts()</a>, <a href="#type_result_args">result_args()</a>}) ->
-                   <a href="#type_cmd_cb_res">cmd_cb_res()</a>)
+        fun((<a href="#type_parse_result">parse_result()</a>) -> <a href="#type_cmd_cb_res">cmd_cb_res()</a>)
       | fun((...) -> <a href="#type_cmd_cb_res">cmd_cb_res()</a>).
 </code></pre>
 
@@ -231,21 +241,18 @@ The return value of a callback defined in `cmd`.
 ### <a name="type_parse_result">parse_result()</a>
 
 <pre><code>-type <a href="#type_parse_result">parse_result()</a> ::
-        {<span style="color:indianred">%% The name of the selected command or subcommand.</span>
-         CmdName :: atom(),
-
-         <span style="color:indianred">%% The parse environment for the selected command or subcommand.</span>
+        {<span style="color:indianred">%% The <a href="#type_cmd">cmd()</a> of the selected command or subcommand and <a href="#type_parse_opts">parse_opts()</a>.</span>
          Env :: <a href="#type_parse_env">parse_env()</a>,
+
+         <span style="color:indianred">%% If `CmdName` is a subcommand, `CmdStack` contains the</span>
+         <span style="color:indianred">%% selected ancestor commands and the options given to them.</span>
+         CmdStack :: <a href="#type_result_cmd_stack">result_cmd_stack()</a>,
 
          <span style="color:indianred">%% The options given to `CmdName`.</span>
          Opts :: <a href="#type_result_opts">result_opts()</a>,
 
          <span style="color:indianred">%% The positional arguments given to `CmdName`.</span>
-         Args :: <a href="#type_result_args">result_args()</a>,
-
-         <span style="color:indianred">%% If `CmdName` is a subcommand, `CmdStack` contains the</span>
-         <span style="color:indianred">%% selected ancestor commands and the options given to them.</span>
-         CmdStack :: <a href="#type_result_cmd_stack">result_cmd_stack()</a>}.
+         Args :: <a href="#type_result_args">result_args()</a>}.
 </code></pre>
 
 ### <a name="type_result_opts">result_opts()</a>
@@ -285,7 +292,7 @@ The return value of a callback defined in `cmd`.
 ### <a name="type_argval">argval()</a>
 
 <pre><code>-type <a href="#type_argval">argval()</a> ::
-        string()   <span style="color:indianred">% if argtype is 'string'</span>
+        string()   <span style="color:indianred">% if argtype is 'string', 'dir' or 'file'</span>
       | atom()     <span style="color:indianred">% if argtype is 'enum'</span>
       | integer()  <span style="color:indianred">% if argtype is 'int'</span>
       | float()    <span style="color:indianred">% if argtype is 'float'</span>
@@ -305,13 +312,13 @@ The return value of a callback defined in `cmd`.
           <span style="color:indianred">%% added to the main command.</span>
           version => string(),
 
-          <span style="color:indianred">%% If `default_help_opt` is set to `true`, `-h|--help` is added to</span>
+          <span style="color:indianred">%% If `add_help_option` is set to `true`, `-h|--help` is added to</span>
           <span style="color:indianred">%% the command and all subcommands.</span>
-          default_help_opt => boolean(), <span style="color:indianred">% default is 'true'</span>
+          add_help_option => boolean(), <span style="color:indianred">% default is 'true'</span>
 
-          <span style="color:indianred">%% If `default_completion_opt` is set to `true`, `--completion`</span>
+          <span style="color:indianred">%% If `add_completion_option` is set to `true`, `--completion`</span>
           <span style="color:indianred">%% is added to the command.</span>
-          default_completion_opt => boolean, <span style="color:indianred">% default is 'true'</span>
+          add_completion_option => boolean, <span style="color:indianred">% default is 'true'</span>
 
           <span style="color:indianred">%% If `print_usage_on_error` is set to 'true', a message will</span>
           <span style="color:indianred">%% be printed to stderr if parsing of the command line failed,</span>
@@ -325,6 +332,8 @@ The return value of a callback defined in `cmd`.
 
 ### <a name="type_parse_env">parse_env()</a>
 
+The `parse_env()` contains the `cmd()` spec for the selected command
+or subcommand, and the `parse_opts()` from the `parse()` call.
 <pre><code>-type <a href="#type_parse_env">parse_env()</a> :: {<a href="#type_cmd">cmd()</a>, <a href="#type_parse_opts">parse_opts()</a>}.
 </code></pre>
 

@@ -98,6 +98,10 @@
 %% When the parser parses zero, one or several options, the resulting
 %% erlang term depends on the `type`, `args, `default` and `multiple`
 %% fields.
+%%
+%% In the parse result, each given option, and all opions with default
+%% values are collected into a map `result_opts()`, which maps the option's
+%% `name` to an `optval()`.
 -type opt() ::
         #{
           %% `name` is used as as an identifier in the parse result
@@ -115,22 +119,26 @@
           %% text.
           help => string() | hidden,
 
-          %% If `multiple` is given, val will either be a list of each
+          %% If `multiple` is `true`, the option can be given multiple
+          %% times, and the optval will either be a list of each
           %% value, or - if `type` is `count` - an integer.
           multiple => boolean(),
 
-          type => flag       % val is 'true'
-                | boolean    % --no-<long> is used to disable, val is boolean()
-                | count      % implies `multiple`, val is integer()
-                | argtype()  % val is argval()
-                | arg(),     % val is argval()
+          %% The type of a single valued option argument.
+          %% `type` and `args` are mutually exclusive.
+          type => flag       % optval is 'true'
+                | boolean    % --no-<long> to disable, optval is boolean()
+                | count      % implies `multiple`, optval is integer()
+                | argtype()  % optval is argval()
+                | arg(),     % optval is argval()
 
           %% each arg in `args` must have an integer-valued `nargs`, or
           %% `nargs => '?'`
-          args => [arg()],   % val is result_args()
+          args => [arg()],   % optval is result_args()
 
-          default => term(), % val is default if not given
+          default => term(), % optval is this term if the option is not given
 
+          %% The name of the option in help text.
           %% Default is `name` in uppercase or in brackets (depending
           %% on `metavar_style` in `parse_opts()).  Only used if `type`
           %% is an argtype().
@@ -156,6 +164,10 @@
 %%
 %% An argument has a field `nargs` which specifies how many times the
 %% argument can be given.
+%%
+%% In the parse result, each given argument, and all arguments with
+%% default values are collected into a map `result_args()`, which maps
+%% the argument's `name` to an `argval()`.
 -type arg() ::
         #{
           %% `name` is used as as an identifier in the parse result.
@@ -178,7 +190,7 @@
           %% default is 1
           nargs => pos_integer() | '?' | '*' | '+',
 
-          default => term()
+          default => term() % argval is this term if the argument is not given
          }.
 
 -type range(T) :: T | {Min :: T | 'unbounded',
@@ -221,9 +233,7 @@
 %% - Then follows each option value, and then each argument value; these
 %%   are `undefined` if not given or have defaults.
 -type cmd_cb() ::
-        fun(({parse_env(), result_cmd_stack(),
-                      result_opts(), result_args()}) ->
-                   cmd_cb_res())
+        fun((parse_result()) -> cmd_cb_res())
       | fun((...) -> cmd_cb_res()).
 
 %% The return value of a callback defined in `cmd`.
@@ -244,24 +254,23 @@
 -type opt_cb() :: fun((parse_env(), result_opts()) -> result_opts()).
 
 
+%% The `parse_env()` contains the `cmd()` spec for the selected command
+%% or subcommand, and the `parse_opts()` from the `parse()` call.
 -type parse_env() :: {cmd(), parse_opts()}.
 
 -type parse_result() ::
-        {%% The name of the selected command or subcommand.
-         CmdName :: atom(),
-
-         %% The parse environment for the selected command or subcommand.
+        {%% The cmd() of the selected command or subcommand and parse_opts().
          Env :: parse_env(),
+
+         %% If `CmdName` is a subcommand, `CmdStack` contains the
+         %% selected ancestor commands and the options given to them.
+         CmdStack :: result_cmd_stack(),
 
          %% The options given to `CmdName`.
          Opts :: result_opts(),
 
          %% The positional arguments given to `CmdName`.
-         Args :: result_args(),
-
-         %% If `CmdName` is a subcommand, `CmdStack` contains the
-         %% selected ancestor commands and the options given to them.
-         CmdStack :: result_cmd_stack()}.
+         Args :: result_args()}.
 
 -type result_opts() ::
         #{OptName :: atom() => integer()     % if type is count
@@ -282,7 +291,7 @@
       .
 
 -type argval() ::
-        string()   % if argtype is 'string'
+        string()   % if argtype is 'string', 'dir' or 'file'
       | atom()     % if argtype is 'enum'
       | integer()  % if argtype is 'int'
       | float()    % if argtype is 'float'
@@ -304,13 +313,13 @@
           %% added to the main command.
           version => string(),
 
-          %% If `default_help_opt` is set to `true`, `-h|--help` is added to
+          %% If `add_help_option` is set to `true`, `-h|--help` is added to
           %% the command and all subcommands.
-          default_help_opt => boolean(), % default is 'true'
+          add_help_option => boolean(), % default is 'true'
 
-          %% If `default_completion_opt` is set to `true`, `--completion`
+          %% If `add_completion_option` is set to `true`, `--completion`
           %% is added to the command.
-          default_completion_opt => boolean, % default is 'true'
+          add_completion_option => boolean, % default is 'true'
 
           %% If `print_usage_on_error` is set to 'true', a message will
           %% be printed to stderr if parsing of the command line failed,
@@ -417,7 +426,7 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
                 Cmd0
         end,
     Cmd2 =
-        case maps:get(default_completion_opt, ParseOpts0, true) of
+        case maps:get(add_completion_option, ParseOpts0, true) of
             true ->
                 add_opt(default_completion_opt(), Cmd1);
             false ->
@@ -470,7 +479,7 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
 
 parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
     Cmd1 =
-        case maps:get(default_help_opt, ParseOpts, true) of
+        case maps:get(add_help_option, ParseOpts, true) of
             false ->
                 Cmd0;
             true ->
@@ -489,7 +498,7 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
                 {ok, ResultOpts} ->
                     case maps:get(args, Cmd, undefined) of
                         undefined when RestCmdLine =/= [] ->
-                            case maps:get(cmdmap, Cmd, undefined) of
+                            case maps:get('_cmdmap', Cmd, undefined) of
                                 undefined ->
                                     {error,
                                      {unexpected_args, CmdStr, RestCmdLine}};
@@ -528,14 +537,12 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
             Error
     end.
 
-handle_parsed_cmd(#{name := CmdName},
-                  {_, #{'_comp_word' := _}} = Env,
+handle_parsed_cmd(_, {_, #{'_comp_word' := _}} = Env,
                   ResultOpts, ResultArgs, CmdStack) ->
-    {ok, {CmdName, Env, ResultOpts, ResultArgs, CmdStack}};
+    {ok, {Env, CmdStack, ResultOpts, ResultArgs}};
 handle_parsed_cmd(#{cmd := CmdStr, require_cmd := true}, _, _, _, _) ->
     {error, {expected_subcmd, CmdStr}};
-handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
-                  ResultOpts, ResultArgs, CmdStack) ->
+handle_parsed_cmd(Cmd, Env, ResultOpts, ResultArgs, CmdStack) ->
     case maps:find(cb, Cmd) of
         {ok, Cb} ->
             CbRes =
@@ -558,7 +565,7 @@ handle_parsed_cmd(#{name := CmdName} = Cmd, Env,
                     CbRes
             end;
         _ ->
-            {ok, {CmdName, Env, ResultOpts, ResultArgs, CmdStack}}
+            {ok, {Env, CmdStack, ResultOpts, ResultArgs}}
     end.
 
 set_defaults(Items, ResultMap, CmdStr, Env) ->
@@ -672,7 +679,7 @@ prepare_cmd(Cmd0) ->
     end,
     Opts = prepare_opts(maps:get(opts, Cmd, [])),
     CmdMap = prepare_cmds(maps:get(cmds, Cmd, []), #{}),
-    Cmd1 = Cmd#{opts => Opts, cmdmap => CmdMap},
+    Cmd1 = Cmd#{opts => Opts, '_cmdmap' => CmdMap},
     case maps:get(args, Cmd, undefined) of
         undefined ->
             Cmd1;
@@ -1461,7 +1468,7 @@ get_comp_word(Env) ->
             false
     end.
 
-print_suggestions({_CmdName, {Cmd, ParseOpts}, ResultOpts, _ResultArgs, _}) ->
+print_suggestions({{Cmd, ParseOpts}, _CmdStack, ResultOpts, _ResultArgs}) ->
     #{'_comp_word' := CompWord} = ParseOpts,
     AllSuggestions =
         lists:sort(suggested_subcommands(maps:get(cmds, Cmd, []))) ++

@@ -12,7 +12,7 @@ main(Args) ->
         end,
     ParseOpts =
         #{metavar_style => MVarStyle,
-          default_completion_opt => false},
+          add_completion_option => false},
     R = eclip:parse(Args, spec(), ParseOpts),
     io:format("R: ~p\n", [R]).
 

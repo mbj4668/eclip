@@ -54,7 +54,16 @@ SH-PROMPT
     ?SH-PROMPT
 
     !./mycmd1 --name alice -ddi 2 --name bob
+    # first match on one line in cmd()
+    ??cmd => "mycmd1",name => mycmd1,
+    # match on parse_opts()
+    ??#{add_completion_option => false,metavar_style => caps}},
+    # match on cmdstack
+    ??[],
+    # match on result_opts()
     ??#{dd => 2,i => 2,name => ["alice","bob"]},
+    # match on result_arg
+    ??#{}}
     ?SH-PROMPT
 
     !./mycmd1 -d foo

@@ -19,6 +19,11 @@
 ### and functions.
 ###
 ### edoc isn't used since it doesn't support documentation of types.
+###
+### We generate code as <pre><code> blocks, instead of markdown
+### ```erlang blocks, in order to be able to add links.  We also
+### highlight comments in red, but unfortunately github markdown removes
+### all inline css.
 extract_exported() {
     cat $1 | awk -v WHAT=$2 '
     function print_exported(str) {
