@@ -205,7 +205,7 @@ the argument's `name` to an `argval()`.
         <span style="color:indianred">%% An integer that falls into one of the given ranges</span>
       | {int, [range(integer())]}
         <span style="color:indianred">%% Any term</span>
-      | {custom, fun((string()) -> {ok, term()} | {error, Msg :: string()})}
+      | {custom, fun((string()) -> {ok, term()} | error)}
       .
 </code></pre>
 

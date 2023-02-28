@@ -193,6 +193,8 @@
           default => term() % argval is this term if the argument is not given
          }.
 
+%% Specifies a closed range, i.e., `Min` and `Max` are valid
+%% values (when they are numbers).
 -type range(T) :: T | {Min :: T | 'unbounded',
                        Max :: T | 'unbounded'}.
 
@@ -216,7 +218,7 @@
         %% An integer that falls into one of the given ranges
       | {int, [range(integer())]}
         %% Any term
-      | {custom, fun((string()) -> {ok, term()} | {error, Msg :: string()})}
+      | {custom, fun((string()) -> {ok, term()} | error)}
       .
 
 %% A callback function in a `cmd`.  It is invoked when a command or
@@ -1150,8 +1152,8 @@ match_arg(Arg, Type, _) ->
                 case Fun(Arg) of
                     {ok, _Term} = Ok ->
                         Ok;
-                    Error ->
-                        Error % FIXME: handle this error / format??
+                    _Error ->
+                        throw(error)
                 end
         end
     catch
