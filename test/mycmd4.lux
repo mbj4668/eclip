@@ -13,7 +13,7 @@
     ?SH-PROMPT:
     !cd mycmd4-dir
     ?SH-PROMPT
-    ~./mycmd4 -
+    ~../mycmd4 -
     [sleep 1]
     ~${_TAB_}
     [sleep 1]
@@ -36,8 +36,8 @@
     ~${_TAB_}
     [sleep 1]
     ~${_TAB_}
-    ?aa1/ xx   aa2/ bar  baz
-    ~xx
+    ?aa1/ aa2/ bar  baz
+    ~bar
     [sleep 1]
     ~${_TAB_}
     ?aa
