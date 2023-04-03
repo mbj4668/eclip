@@ -63,11 +63,7 @@
           short_help => string(),
 
           %% Optional callback that implements the command or subcommand.
-          cb => cmd_cb(),
-
-          %% If `auto_help` is `false`, -h|--help isn't automatically
-          %% prepended to `opts`.
-          auto_help => boolean() % default true
+          cb => cmd_cb()
          }.
 %% Used solely to group related commands in the help text.
 -type cmdgroup() ::
@@ -336,11 +332,11 @@
 %% Returns the option spec for `-h|--help`.
 default_help_opt() ->
     #{name => help, short => $h, long => "help", type => flag,
-      expose_value => false, cb => fun cmd_help/2,
+      expose_value => false, cb => fun opt_help/2,
       help => "Show this help and exit"}.
 
--spec cmd_help(parse_env(), result_opts()) -> no_return().
-cmd_help({CmdSpec, ParseOpts}, _) ->
+-spec opt_help(parse_env(), result_opts()) -> no_return().
+opt_help({CmdSpec, ParseOpts}, _) ->
     print_help(standard_io, CmdSpec, ParseOpts),
     throw({done, ok}).
 
@@ -348,11 +344,11 @@ cmd_help({CmdSpec, ParseOpts}, _) ->
 %% Returns the option spec for `--version`.
 default_version_opt() ->
     #{name => version, long => "version", type => flag,
-      expose_value => false, cb => fun cmd_version/2,
+      expose_value => false, cb => fun opt_version/2,
       help => "Print current version and exit"}.
 
--spec cmd_version(parse_env(), result_opts()) -> no_return().
-cmd_version({#{name := Cmd}, #{version := Vsn}}, _) ->
+-spec opt_version(parse_env(), result_opts()) -> no_return().
+opt_version({#{name := Cmd}, #{version := Vsn}}, _) ->
     io:format("~ts ~ts\n", [Cmd, Vsn]),
     throw({done, ok}).
 
@@ -1435,6 +1431,8 @@ fmt_error({expected_opt, CmdStr, Opt}) ->
     io_lib:format("expected option \"~s\" to ~s", [Opt, CmdStr]);
 fmt_error({expected_arg, From}) ->
     io_lib:format("expected argument to ~s", [fmt_from(From)]);
+fmt_error({missing_args, {arg, _, _} = From, _NArgs}) ->
+    io_lib:format("expected ~s", [fmt_from(From)]);
 fmt_error({missing_args, From, _NArgs}) ->
     io_lib:format("expected argument to ~s", [fmt_from(From)]);
 fmt_error({bad_arg, From, {Arg, _Type}}) ->

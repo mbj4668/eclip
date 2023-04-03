@@ -1,4 +1,4 @@
-# Eclip - Erlang library for command line parsing
+# Eclip - An Erlang library for command line parsing
 
 Eclip is a command line parser for Erlang programs.  It is similar in
 functionality to Python's `click`.

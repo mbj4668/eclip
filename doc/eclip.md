@@ -41,11 +41,7 @@ Specifies the main command and subcommands.
           short_help => string(),
 
           <span style="color:indianred">%% Optional callback that implements the command or subcommand.</span>
-          cb => <a href="#type_cmd_cb">cmd_cb()</a>,
-
-          <span style="color:indianred">%% If `auto_help` is `false`, -h|--help isn't automatically</span>
-          <span style="color:indianred">%% prepended to `opts`.</span>
-          auto_help => boolean() <span style="color:indianred">% default true</span>
+          cb => <a href="#type_cmd_cb">cmd_cb()</a>
          }.
 </code></pre>
 
