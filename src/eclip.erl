@@ -360,10 +360,10 @@ default_completion_opt() ->
       expose_value => false,
       help => "Print sourceable bash/zsh completion script. "
               "If no parameter is given, a guess will be made based on $SHELL.",
-      cb => fun cmd_completion/2}.
+      cb => fun opt_completion/2}.
 
--spec cmd_completion(parse_env(), result_opts()) -> no_return().
-cmd_completion({#{cmd := Cmd}, _}, ResultOpts) ->
+-spec opt_completion(parse_env(), result_opts()) -> no_return().
+opt_completion({#{cmd := Cmd}, _}, ResultOpts) ->
     Shell =
         case maps:find(completion, ResultOpts) of
             {ok, #{shell := Shell0}} when Shell0 /= undefined ->
