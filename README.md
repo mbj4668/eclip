@@ -245,7 +245,7 @@ parse(["--no-implicit-names", "--enforce-checks"],
 
 ### Count option
 
-The command has an option `-v` which can be given mulitple times to
+The command has an option `-v` which can be given multiple times to
 increase the verbosity.
 
 ```erlang

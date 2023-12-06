@@ -15,7 +15,7 @@ Specifies the main command and subcommands.
 
           <span style="color:indianred">%% `cmd` is the string that the user uses to invoke the</span>
           <span style="color:indianred">%% command.  It is required for subcommands.  The default</span>
-          <span style="color:indianred">%% for the main command is the programname ("argv[0]").</span>
+          <span style="color:indianred">%% for the main command is the program name ("argv[0]").</span>
           cmd => string(),
 
           opts => [<a href="#type_opt">opt()</a> | <a href="#type_optgroup">optgroup()</a>],
@@ -80,7 +80,7 @@ When the parser parses zero, one or several options, the resulting
 erlang term depends on the `type`, `args, `default` and `multiple`
 fields.
 
-In the parse result, each given option, and all opions with default
+In the parse result, each given option, and all options with default
 values are collected into a map `result_opts()`, which maps the option's
 `name` to an `optval()`.
 <pre><code>-type <a href="#type_opt">opt()</a> ::
@@ -128,7 +128,7 @@ values are collected into a map `result_opts()`, which maps the option's
           required => boolean(), <span style="color:indianred">% default is `false`</span>
 
           <span style="color:indianred">%% If `expose_value` is `false`, then the option is not included</span>
-          <span style="color:indianred">%% in the arguemts to callbacks with arity > 1.</span>
+          <span style="color:indianred">%% in the arguments to callbacks with arity > 1.</span>
           expose_value => boolean(), <span style="color:indianred">% default is `true`</span>
 
           <span style="color:indianred">%% If the option is found, the callback is invoked.</span>

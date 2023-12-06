@@ -37,7 +37,7 @@
 
           %% `cmd` is the string that the user uses to invoke the
           %% command.  It is required for subcommands.  The default
-          %% for the main command is the programname ("argv[0]").
+          %% for the main command is the program name ("argv[0]").
           cmd => string(),
 
           opts => [opt() | optgroup()],
@@ -95,7 +95,7 @@
 %% erlang term depends on the `type`, `args, `default` and `multiple`
 %% fields.
 %%
-%% In the parse result, each given option, and all opions with default
+%% In the parse result, each given option, and all options with default
 %% values are collected into a map `result_opts()`, which maps the option's
 %% `name` to an `optval()`.
 -type opt() ::
@@ -143,7 +143,7 @@
           required => boolean(), % default is `false`
 
           %% If `expose_value` is `false`, then the option is not included
-          %% in the arguemts to callbacks with arity > 1.
+          %% in the arguments to callbacks with arity > 1.
           expose_value => boolean(), % default is `true`
 
           %% If the option is found, the callback is invoked.
@@ -649,7 +649,7 @@ flatten_opts([H | T]) ->
 flatten_opts([]) ->
     [].
 
-%% valdidates the given spec, and fills in defaults etc.
+%% validates the given spec, and fills in defaults etc.
 prepare_main_cmd(Cmd0) ->
     %% ensure
     Cmd1 =
