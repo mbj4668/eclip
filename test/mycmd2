@@ -6,5 +6,6 @@ main(Args) ->
     eclip:parse(Args, spec(), #{}).
 
 spec() ->
-    #{opts => [#{short => $i, type => int, default => 1}],
+    #{opts => [#{short => $i, type => int,
+                 default => 1, default_in_help => false}],
       args => [#{name => name, type => {enum, [foo, bar]}}]}.

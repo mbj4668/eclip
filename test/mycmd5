@@ -1,0 +1,26 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../ebin -pa ../../ebin
+
+-mode(compile).
+
+main(Args) ->
+    R = eclip:parse(Args, spec(), #{print_usage_on_error => false}),
+    io:format("R: ~p\n", [R]).
+
+spec() ->
+    #{opts => [#{short => $d, type => {custom, fun chk_d/1}},
+               #{short => $f, type => string, default => "hello"}],
+      cb => fun do_cmd/4}.
+
+chk_d([X,$:,Y]) ->
+    {ok, {xy, X, Y}};
+chk_d(_Bad) ->
+    error.
+
+do_cmd(_, _, {xy, $a, $b}, _) ->
+    ok;
+do_cmd(_, _, _D, _) ->
+    {error, "My error message", my_error_tag}.
+
+

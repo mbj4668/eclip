@@ -52,7 +52,7 @@ Options:
                              parameter is given, a guess will be made based on
                              $SHELL.
       --name NAME            The person to greet
-      --count COUNT          Number of greetings
+      --count COUNT          Number of greetings (default 1)
 ```
 
 And it automatically generates shell completion scripts:
@@ -232,7 +232,7 @@ parse([],
 The command has two boolean options.
 
 ```erlang
-%% mycmd -s
+%% mycmd --no-implicit-names --enforce-checks
 parse(["--no-implicit-names", "--enforce-checks"],
       #{cmd => "mycmd",
         opts => [#{long => "implicit-names", type => boolean},

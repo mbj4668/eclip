@@ -119,6 +119,10 @@ values are collected into a map `result_opts()`, which maps the option's
 
           default => term(), <span style="color:indianred">% optval is this term if the option is not given</span>
 
+          <span style="color:indianred">%% if `default_in_help` is `false`, the given default value is not</span>
+          <span style="color:indianred">%% automatically printed in the help string</span>
+          default_in_help => boolean(), <span style="color:indianred">% default is `true`</span>
+
           <span style="color:indianred">%% The name of the option in help text.</span>
           <span style="color:indianred">%% Default is `name` in uppercase or in brackets (depending</span>
           <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts()</a>).  Only used if `type`</span>

@@ -8,8 +8,10 @@ main(Args) ->
     eclip:parse(Args, spec(), #{}).
 
 spec() ->
-    #{opts => [#{short => $n, long => "number-of-sites", default => 1},
-               #{short => $H, long => "number-of-hosts", default => 1}],
+    #{opts => [#{short => $n, long => "number-of-sites",
+                 default => 1, default_in_help => false},
+               #{short => $H, long => "number-of-hosts",
+                 default => 1, default_in_help => false}],
       cb => fun do_cmd/4}.
 
 do_cmd(_, _, N, H) ->

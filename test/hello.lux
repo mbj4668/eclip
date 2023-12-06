@@ -25,7 +25,7 @@ Options:
                              parameter is given, a guess will be made based on
                              $$SHELL.
       --name NAME            The person to greet
-      --count COUNT          Number of greetings
+      --count COUNT          Number of greetings (default 1)
 SH-PROMPT
 """
 

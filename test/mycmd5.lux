@@ -1,0 +1,34 @@
+[doc test custom callback and default in help]
+
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
+[shell test]
+    !./mycmd5 -h
+"""???
+Usage: mycmd5 [OPTIONS]
+
+Options:
+  -h, --help                 Show this help and exit
+      --completion [SHELL]   Print sourceable bash/zsh completion script. If no
+                             parameter is given, a guess will be made based on
+                             $SHELL.
+  -d   D
+  -f   F                     Default "hello"
+R: {done,ok}
+SH-PROMPT
+"""
+    
+    !./mycmd5 -d d
+    ?{error,{bad_arg,
+    ?SH-PROMPT
+
+    !./mycmd5 -d a:x
+    ?R: {error,my_error_tag}
+    ?SH-PROMPT
+
+    !./mycmd5 -d a:b
+    ?R: ok
+    ?SH-PROMPT
+    

@@ -134,6 +134,10 @@
 
           default => term(), % optval is this term if the option is not given
 
+          %% if `default_in_help` is `false`, the given default value is not
+          %% automatically printed in the help string
+          default_in_help => boolean(), % default is `true`
+
           %% The name of the option in help text.
           %% Default is `name` in uppercase or in brackets (depending
           %% on `metavar_style` in `parse_opts()).  Only used if `type`
@@ -737,8 +741,9 @@ prepare_opts([Opt0 | T]) ->
             _ ->
                 Opt1#{type => string}
         end,
-    Opt3 = prepare_opt_default(Opt2),
-    [Opt3 | prepare_opts(T)];
+    Opt3 = prepare_opt_help(Opt2),
+    Opt4 = prepare_opt_default(Opt3),
+    [Opt4 | prepare_opts(T)];
 prepare_opts([]) ->
     [].
 
@@ -797,6 +802,17 @@ validate_arg_type(Name, Type) ->
         _:_ ->
             error({invalid_arg, Name, {bad_type, Type}})
     end.
+
+prepare_opt_help(#{default_in_help := false} = Opt) ->
+    Opt;
+prepare_opt_help(#{default := Default, help := HelpStr} = Opt) ->
+    DefStr = io_lib:format(" (default ~p)", [Default]),
+    Opt#{help => [HelpStr, DefStr]};
+prepare_opt_help(#{default := Default} = Opt) ->
+    DefStr = io_lib:format("Default ~p", [Default]),
+    Opt#{help => DefStr};
+prepare_opt_help(Opt) ->
+    Opt.
 
 prepare_opt_default(#{default := _} = Opt) ->
     Opt;
