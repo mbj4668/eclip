@@ -5,22 +5,24 @@
 -mode(compile).
 
 main(Args) ->
-    R = eclip:parse(Args, spec(), #{print_usage_on_error => false}),
+    R = eclip:parse(Args, spec(), #{}),
     io:format("R: ~p\n", [R]).
 
 spec() ->
     #{opts => [#{short => $d, type => {custom, fun chk_d/1}},
-               #{short => $f, type => string, default => "hello"}],
-      cb => fun do_cmd/4}.
+               #{short => $f, type => string, default => "hello"},
+               #{short => $s, long => "shout-louder", type => boolean,
+                help => "Shout it"}],
+      cb => fun do_cmd/5}.
 
 chk_d([X,$:,Y]) ->
     {ok, {xy, X, Y}};
 chk_d(_Bad) ->
     error.
 
-do_cmd(_, _, {xy, $a, $b}, _) ->
-    ok;
-do_cmd(_, _, _D, _) ->
+do_cmd(_, _, {xy, $a, $b}, _, S) ->
+    {ok, S};
+do_cmd(_, _, _D, _, _) ->
     {error, "My error message", my_error_tag}.
 
 

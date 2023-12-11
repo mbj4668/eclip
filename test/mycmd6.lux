@@ -1,36 +1,43 @@
-[doc test custom callback and default in help]
+[doc test boolean options]
 
 [config shell_cmd=/bin/bash]
 [config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
 [config shell_prompt_regexp=^SH-PROMPT:]
 
 [shell test]
-    !./mycmd5 -h
+    !./mycmd6 -h
 """???
-Usage: mycmd5 [OPTIONS]
+Usage: mycmd6 [OPTIONS]
 
 Options:
   -h, --help                 Show this help and exit
       --completion [SHELL]   Print sourceable bash/zsh completion script. If no
                              parameter is given, a guess will be made based on
                              $SHELL.
-  -d   D
-  -f   F                     Default: "hello"
-  -s, --shout-louder / --no-shout-louder
-                             Shout it (default: no-shout-louder)
-R: {done,ok}
+  -s, --shout / --no-shout   Default: no-shout
+  -C, --no-commit
+  -x, --xxx / --no-xxx       Default: xxx
 SH-PROMPT
 """
     
-    !./mycmd5 -d d
-    ?Error: bad value "d" for option -d
+    !./mycmd6
+    ?R: false false true
     ?SH-PROMPT
 
-    !./mycmd5 -d a:x
-    ?Error: My error message
+    !./mycmd6 --no-commit
+    ?R: false true true
     ?SH-PROMPT
 
-    !./mycmd5 -d a:b
-    ?R: {ok,false}
+    !./mycmd6 --no-yyy
+    ?unrecognized option "--no-yyy"
     ?SH-PROMPT
-    
+
+    !source <(./mycmd6 --completion bash)
+    ?SH-PROMPT
+
+    ~../mycmd6 -
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?--no-shout

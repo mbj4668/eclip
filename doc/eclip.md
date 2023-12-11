@@ -18,6 +18,7 @@ Specifies the main command and subcommands.
           <span style="color:indianred">%% for the main command is the program name ("argv[0]").</span>
           cmd => string(),
 
+          <span style="color:indianred">%% `opts` specifies the options to the command.</span>
           opts => [<a href="#type_opt">opt()</a> | <a href="#type_optgroup">optgroup()</a>],
 
           <span style="color:indianred">%% `args` specifies the positional arguments to the command.</span>
@@ -185,6 +186,7 @@ the argument's `name` to an `argval()`.
 
 ### <a name="type_argtype">argtype()</a>
 
+Specifies the type of an `arg()`.
 <pre><code>-type <a href="#type_argtype">argtype()</a> ::
         <span style="color:indianred">%% A string that represents a directory (helps completion)</span>
         dir
@@ -207,6 +209,14 @@ the argument's `name` to an `argval()`.
         <span style="color:indianred">%% Any term</span>
       | {custom, fun((string()) -> {ok, term()} | error)}
       .
+</code></pre>
+
+### <a name="type_range">range(T)</a>
+
+Specifies a closed range, i.e., `Min` and `Max` are valid
+values (when they are numbers).
+<pre><code>-type <a href="#type_range">range(T)</a> :: T | {Min :: T | 'unbounded',
+                       Max :: T | 'unbounded'}.
 </code></pre>
 
 ### <a name="type_cmd_cb">cmd_cb()</a>

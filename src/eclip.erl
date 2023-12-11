@@ -11,7 +11,7 @@
 
 -export_type([cmd/0, cmdgroup/0,
               opt/0, optgroup/0,
-              arg/0, argtype/0,
+              arg/0, argtype/0, range/1,
 
               cmd_cb/0, cmd_cb_res/0,
 
@@ -40,6 +40,7 @@
           %% for the main command is the program name ("argv[0]").
           cmd => string(),
 
+          %% `opts` specifies the options to the command.
           opts => [opt() | optgroup()],
 
           %% `args` specifies the positional arguments to the command.
@@ -193,11 +194,7 @@
           default => term() % argval is this term if the argument is not given
          }.
 
-%% Specifies a closed range, i.e., `Min` and `Max` are valid
-%% values (when they are numbers).
--type range(T) :: T | {Min :: T | 'unbounded',
-                       Max :: T | 'unbounded'}.
-
+%% Specifies the type of an `arg()`.
 -type argtype() ::
         %% A string that represents a directory (helps completion)
         dir
@@ -220,6 +217,11 @@
         %% Any term
       | {custom, fun((string()) -> {ok, term()} | error)}
       .
+
+%% Specifies a closed range, i.e., `Min` and `Max` are valid
+%% values (when they are numbers).
+-type range(T) :: T | {Min :: T | 'unbounded',
+                       Max :: T | 'unbounded'}.
 
 %% A callback function in a `cmd`.  It is invoked when a command or
 %% subcommand is selected by the user.
@@ -252,7 +254,8 @@
 %% The callback is called with the options gathered so far, and it
 %% must either return new options (possibly modified), or stop
 %% parsing by throwing `{done, term()}`.  This is useful
-%% e.g., to implement `--version` or `--help`.
+%% e.g., to implement `--version` or `--help`.  An option that
+%% throws '{done, term()}' is called an eager option.
 -type opt_cb() :: fun((parse_env(), result_opts()) -> result_opts()).
 
 
@@ -735,6 +738,10 @@ prepare_opts([Opt0 | T]) ->
                         Opt1#{type => int};
                    is_float(Default) ->
                         Opt1#{type => float};
+                   Default == true ->
+                        Opt1#{type => boolean};
+                   Default == false ->
+                        Opt1#{type => boolean};
                    true ->
                         Opt1#{type => string}
                 end;
@@ -805,11 +812,27 @@ validate_arg_type(Name, Type) ->
 
 prepare_opt_help(#{default_in_help := false} = Opt) ->
     Opt;
+prepare_opt_help(#{help := HelpStr, type := boolean, long := LOpt} = Opt) ->
+    DefStr =
+        case maps:get(default, Opt, false) of
+            true -> [" (default: ", LOpt, ")"];
+            false -> [" (default: no-", LOpt, ")"]
+        end,
+    Opt#{help => [HelpStr, DefStr]};
+prepare_opt_help(#{type := boolean, long := LOpt} = Opt) ->
+    DefStr =
+        case maps:get(default, Opt, false) of
+            true -> ["Default: ", LOpt];
+            false -> ["Default: no-", LOpt]
+        end,
+    Opt#{help => DefStr};
+prepare_opt_help(#{type := boolean} = Opt) ->
+    Opt;
 prepare_opt_help(#{default := Default, help := HelpStr} = Opt) ->
-    DefStr = io_lib:format(" (default ~p)", [Default]),
+    DefStr = io_lib:format(" (default: ~p)", [Default]),
     Opt#{help => [HelpStr, DefStr]};
 prepare_opt_help(#{default := Default} = Opt) ->
-    DefStr = io_lib:format("Default ~p", [Default]),
+    DefStr = io_lib:format("Default: ~p", [Default]),
     Opt#{help => DefStr};
 prepare_opt_help(Opt) ->
     Opt.
@@ -891,7 +914,7 @@ parse_opts(["--no-" ++ LOpt | T], Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
             parse_opts(T, Opts, CmdStr, Env, OptsAcc1, CmdStack);
         _ ->
             %% else fall back to normal parsing of long opts
-            parse_lopt(LOpt, T, Opts, CmdStr, Env, OptsAcc0, CmdStack)
+            parse_lopt("no-" ++ LOpt, T, Opts, CmdStr, Env, OptsAcc0, CmdStack)
     end;
 parse_opts(["--" ++ LOpt | T], Opts, CmdStr, Env, OptsAcc, CmdStack) ->
     parse_lopt(LOpt, T, Opts, CmdStr, Env, OptsAcc, CmdStack);
@@ -1270,13 +1293,22 @@ fmt_opts_section({Header, Opts}, MStyle, Sz) ->
 
 fmt_opt(Opt, MStyle, Sz) ->
     OptStr =
-        case {maps:get(short, Opt, undef), maps:get(long, Opt, undef)} of
-            {Ch, undef} ->
+        case
+            {maps:get(short, Opt, undef),
+             maps:get(long, Opt, undef),
+             maps:get(type, Opt, undef)} of
+            {Ch, undef, _} ->
                 [$-, Ch, $\s, $\s];
-            {undef, Long} ->
-                "    --" ++ Long;
-            {Ch, Long} ->
-                [$-, Ch, $,, $\s] ++ "--" ++ Long
+            {undef, Long, Type} ->
+                "    --" ++ Long ++
+                    if Type == boolean -> " / --no-" ++ Long;
+                       true -> ""
+                    end;
+            {Ch, Long, Type} ->
+                [$-, Ch, $,, $\s] ++ "--" ++ Long ++
+                    if Type == boolean -> " / --no-" ++ Long;
+                       true -> ""
+                    end
         end,
     MetavarStr = case fmt_opt_metavar(Opt, MStyle) of
                      "" -> "";
@@ -1527,10 +1559,16 @@ suggested_options([], _) ->
 
 suggest_opt(Opt, T, ResultOpts) ->
     case Opt of
+        #{short := Ch, long := Long, type := boolean} ->
+            [[$-, Ch], [$-, $- | Long], [$-, $-, $n, $o, $- | Long] |
+             suggested_options(T, ResultOpts)];
         #{short := Ch, long := Long} ->
             [[$-, Ch], [$-, $- | Long] | suggested_options(T, ResultOpts)];
         #{short := Ch} ->
             [[$-, Ch] | suggested_options(T, ResultOpts)];
+        #{long := Long, type := boolean} ->
+            [[$-, $- | Long], [$-, $-, $n, $o, $- | Long] |
+             suggested_options(T, ResultOpts)];
         #{long := Long} ->
             [[$-, $- | Long] | suggested_options(T, ResultOpts)]
     end.

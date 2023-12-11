@@ -1,0 +1,21 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../ebin -pa ../../ebin
+
+-mode(compile).
+
+main(Args) ->
+    eclip:parse(Args, spec(), #{}).
+
+spec() ->
+    #{opts => [#{short => $s, long => "shout", type => boolean},
+               #{short => $C, long => "no-commit", type => flag},
+               #{short => $x, long => "xxx", type => boolean, default => true}
+              ],
+      cb => fun do_cmd/5}.
+
+do_cmd(_, _, S, NC, X) ->
+    io:format("R: ~p ~p ~p\n", [S, NC, X]),
+    ok.
+
+

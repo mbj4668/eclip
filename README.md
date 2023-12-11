@@ -52,7 +52,7 @@ Options:
                              parameter is given, a guess will be made based on
                              $SHELL.
       --name NAME            The person to greet
-      --count COUNT          Number of greetings (default 1)
+      --count COUNT          Number of greetings (default: 1)
 ```
 
 And it automatically generates shell completion scripts:
@@ -229,7 +229,9 @@ parse([],
 
 ### Boolean option
 
-The command has two boolean options.
+The command has two boolean options.  A boolean option is similar to a
+flag, but it allows the user to explicitly specify the negation of the
+option as `--no-OPTION`.
 
 ```erlang
 %% mycmd --no-implicit-names --enforce-checks
@@ -240,8 +242,6 @@ parse(["--no-implicit-names", "--enforce-checks"],
 
 > {ok, {_Env, [], #{enforce_checks => true, implicit_names => false}, #{}}}
 ```
-
-
 
 ### Count option
 
@@ -256,7 +256,6 @@ parse(["-vvv", "-v"],
 
 > {ok, {_Env, [], #{verbosity => 4}, #{}}}
 ```
-
 
 ### Option with one argument, and one argument to the command
 
