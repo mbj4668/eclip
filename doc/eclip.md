@@ -391,7 +391,31 @@ If any option's callback throws `{done, term()}`, this is returned.
 Otherwise, parsing succeeds and no callback was invoked, the
 `parse` function returns `{ok, parse_result()}`.
 
+### <a name="func_fmt_help">fmt_help/1</a>
 
+<pre><code>-spec fmt_help(Env :: <a href="#type_parse_env">parse_env()</a>) -> unicode:<a href="#type_chardata">chardata()</a>.
+</code></pre>
+Equivalent to `fmt_help(Env, {79, 29})`.
+### <a name="func_fmt_help">fmt_help/1</a>
+
+<pre><code>-spec fmt_help(Env :: <a href="#type_parse_env">parse_env()</a>,
+               {Width :: integer(), Col :: integer()}) ->
+          unicode:<a href="#type_chardata">chardata()</a>.
+</code></pre>
+Formats the help text with the given `Width` and help text starting
+at column `Col`.
+
+### <a name="func_print_help">print_help/1</a>
+
+<pre><code>-spec print_help(Env :: <a href="#type_parse_env">parse_env()</a>) -> ok.
+</code></pre>
+Equivalent to `print_help(standard_io, Env)`.
+
+### <a name="func_print_help">print_help/2</a>
+
+<pre><code>-spec print_help(io:<a href="#type_device">device()</a>, Env :: <a href="#type_parse_env">parse_env()</a>) -> ok.
+</code></pre>
+Prints the help text to the given io device.
 
 ### <a name="func_default_help_opt">default_help_opt/0</a>
 

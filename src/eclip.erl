@@ -3,7 +3,7 @@
 -module(eclip).
 
 -export([parse/2, parse/3]).
--export([fmt_help/2, print_help/3]).
+-export([fmt_help/1, print_help/1, print_help/2]).
 
 -export([default_help_opt/0,
          default_version_opt/0,
@@ -343,8 +343,8 @@ default_help_opt() ->
       help => "Show this help and exit"}.
 
 -spec opt_help(parse_env(), result_opts()) -> no_return().
-opt_help({CmdSpec, ParseOpts}, _) ->
-    print_help(standard_io, CmdSpec, ParseOpts),
+opt_help(Env, _) ->
+    print_help(Env),
     throw({done, ok}).
 
 -spec default_version_opt() -> opt().
@@ -1218,7 +1218,16 @@ chk_ranges([_ | T], Val) ->
 
 %%% Help formatting
 
-print_help(Fd, Cmd, ParseOpts) ->
+%% @print_help/1
+-spec print_help(Env :: parse_env()) -> ok.
+%% Equivalent to `print_help(standard_io, Env)`.
+print_help(Env) ->
+    print_help(standard_io, Env).
+
+%% @print_help/2
+-spec print_help(io:device(), Env :: parse_env()) -> ok.
+%% Prints the help text to the given io device.
+print_help(Fd, Env) ->
     Width =
         case io:columns(Fd) of
             {ok, Cols} ->
@@ -1228,11 +1237,21 @@ print_help(Fd, Cmd, ParseOpts) ->
                 79
         end,
     Col = ceil(Width / 2.8), % carefully selected to get 29 when Width is 79
-    io:put_chars(Fd, fmt_help(Cmd, ParseOpts, {Width, Col})).
+    io:put_chars(Fd, fmt_help(Env, {Width, Col})).
 
-fmt_help(Cmd, ParseOpts) ->
-    fmt_help(Cmd, ParseOpts, {79, 29}).
-fmt_help(Cmd, ParseOpts, Sz) ->
+%% @fmt_help/1
+-spec fmt_help(Env :: parse_env()) -> unicode:chardata().
+%% Equivalent to `fmt_help(Env, {79, 29})`.
+fmt_help(Env) ->
+    fmt_help(Env, {79, 29}).
+
+%% @fmt_help/1
+-spec fmt_help(Env :: parse_env(),
+               {Width :: integer(), Col :: integer()}) ->
+          unicode:chardata().
+%% Formats the help text with the given `Width` and help text starting
+%% at column `Col`.
+fmt_help({Cmd, ParseOpts}, Sz) ->
     MStyle = maps:get(metavar_style, ParseOpts, caps),
     Sections =
         [fmt_usage(Cmd, MStyle),
