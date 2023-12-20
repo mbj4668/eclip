@@ -34,8 +34,9 @@ Specifies the main command and subcommands.
 
           <span style="color:indianred">%% The string that is printed in the help text.  If set to</span>
           <span style="color:indianred">%% `hidden`, the command will not be displayed in the help</span>
-          <span style="color:indianred">%% text.</span>
-          help => string() | hidden,
+          <span style="color:indianred">%% text.  Use two consecutive newlines to break the text</span>
+          <span style="color:indianred">%% into paragraphs. For more complex help formatting, use `<a href="#type_doc">doc()</a>`.</span>
+          help => string() | <a href="#type_doc">doc()</a> | hidden,
 
           <span style="color:indianred">%% The string that is printed in the listing of subcommands.</span>
           <span style="color:indianred">%% Default is the first sentence of `help`.</span>
@@ -123,6 +124,10 @@ values are collected into a map `result_opts()`, which maps the option's
           <span style="color:indianred">%% if `default_in_help` is `false`, the given default value is not</span>
           <span style="color:indianred">%% automatically printed in the help string</span>
           default_in_help => boolean(), <span style="color:indianred">% default is `true`</span>
+
+          <span style="color:indianred">%% if `enum_in_help` is `false`, and `type` is an enumeration,</span>
+          <span style="color:indianred">%% the enums are not automatically printed in the help string</span>
+          enum_in_help => boolean(), <span style="color:indianred">% default is `true`</span>
 
           <span style="color:indianred">%% The name of the option in help text.</span>
           <span style="color:indianred">%% Default is `name` in uppercase or in brackets (depending</span>
@@ -345,6 +350,38 @@ The return value of a callback defined in `cmd`.
 The `parse_env()` contains the `cmd()` spec for the selected command
 or subcommand, and the `parse_opts()` from the `parse()` call.
 <pre><code>-type <a href="#type_parse_env">parse_env()</a> :: {<a href="#type_cmd">cmd()</a>, <a href="#type_parse_opts">parse_opts()</a>}.
+</code></pre>
+
+### <a name="type_doc">doc()</a>
+
+A document can be used to get more control over how a command's help
+text is formatted.  It can be used to print paragraphs, lists etc.
+A nested document is indented one more level.
+<pre><code>-type <a href="#type_doc">doc()</a> :: {doc, [<a href="#type_p">p()</a> | <a href="#type_ul">ul()</a> | <a href="#type_dl">dl()</a> | <a href="#type_pre">pre()</a> | <a href="#type_doc">doc()</a>]}.
+</code></pre>
+
+### <a name="type_p">p()</a>
+
+A paragraph of text.
+<pre><code>-type <a href="#type_p">p()</a> :: {p, string()}.
+</code></pre>
+
+### <a name="type_ul">ul()</a>
+
+An unordered list of strings.
+<pre><code>-type <a href="#type_ul">ul()</a> :: {ul, [string()]}.
+</code></pre>
+
+### <a name="type_dl">dl()</a>
+
+A description list.
+<pre><code>-type <a href="#type_dl">dl()</a> :: {dl, [{Term :: string(), Text :: string()}]}.
+</code></pre>
+
+### <a name="type_pre">pre()</a>
+
+A pre-formatted string.
+<pre><code>-type <a href="#type_pre">pre()</a> :: {pre, string()}.
 </code></pre>
 
 ## Functions

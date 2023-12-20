@@ -1,0 +1,28 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../ebin
+
+-mode(compile).
+
+main(Args) ->
+    eclip:parse(Args, spec(), #{}).
+
+spec() ->
+    #{args => [#{name => str}],
+      help => {doc, [{p, "This is the first paragraph."},
+                     {p, "This is the second paragraph."},
+                     {ul, "Here is a list of fruits:",
+                      ["apple", "banana", "pear"]},
+                     {dl, "Here is a list of terms:",
+                      [{"csv", "Comma-separated values"},
+                       {"raw", "Raw frames"}]},
+                     {p, "Here's an erlang snippet:"},
+                     {pre, "foo(X) ->\n"
+                           "    case X of\n"
+                           "        undefined -> ok;\n"
+                           "        {bar, B} -> bar(B)\n"
+                           "    end."},
+                     {p, "Let's nest."},
+                     {doc, [{p, "This is the nested paragraph."},
+                            {ul, "With a list:",
+                             ["cat", "dog"]}]}]}}.

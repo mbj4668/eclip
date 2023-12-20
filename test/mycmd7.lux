@@ -1,0 +1,42 @@
+[doc test structured help]
+
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
+[shell test]
+    !./mycmd7 -h
+"""???
+Usage: mycmd7 [OPTIONS] STR
+
+  This is the first paragraph.
+
+  This is the second paragraph.
+
+  Here is a list of fruits:
+    o apple
+    o banana
+    o pear
+
+  Here is a list of terms:
+    csv    Comma-separated values
+    raw    Raw frames
+
+  Here's an erlang snippet:
+
+  foo(X) ->
+      case X of
+          undefined -> ok;
+          {bar, B} -> bar(B)
+      end.
+
+  Let's nest.
+
+    This is the nested paragraph.
+
+    With a list:
+      o cat
+      o dog
+
+Options:
+"""

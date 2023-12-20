@@ -18,7 +18,9 @@
               parse_result/0,
               result_opts/0, result_args/0, result_cmd_stack/0,
               optval/0, argval/0,
-              parse_opts/0, parse_env/0]).
+              parse_opts/0, parse_env/0,
+
+              doc/0, p/0, ul/0, dl/0, pre/0]).
 
 -define(iof, io:format).
 -define(a2l, atom_to_list).
@@ -56,8 +58,9 @@
 
           %% The string that is printed in the help text.  If set to
           %% `hidden`, the command will not be displayed in the help
-          %% text.
-          help => string() | hidden,
+          %% text.  Use two consecutive newlines to break the text
+          %% into paragraphs. For more complex help formatting, use `doc()`.
+          help => string() | doc() | hidden,
 
           %% The string that is printed in the listing of subcommands.
           %% Default is the first sentence of `help`.
@@ -138,6 +141,10 @@
           %% if `default_in_help` is `false`, the given default value is not
           %% automatically printed in the help string
           default_in_help => boolean(), % default is `true`
+
+          %% if `enum_in_help` is `false`, and `type` is an enumeration,
+          %% the enums are not automatically printed in the help string
+          enum_in_help => boolean(), % default is `true`
 
           %% The name of the option in help text.
           %% Default is `name` in uppercase or in brackets (depending
@@ -334,6 +341,24 @@
           %% A user-defined term.  Useful to pass data to callbacks.
           user => term()
          }.
+
+%% A document can be used to get more control over how a command's help
+%% text is formatted.  It can be used to print paragraphs, lists etc.
+%% A nested document is indented one more level.
+-type doc() :: {doc, [p() | ul() | dl() | pre() | doc()]}.
+
+%% A paragraph of text.
+-type p() :: {p, string()}.
+
+%% An unordered list of strings.
+-type ul() :: {ul, [string()]}.
+
+%% A description list.
+-type dl() :: {dl, [{Term :: string(), Text :: string()}]}.
+
+%% A pre-formatted string.
+-type pre() :: {pre, string()}.
+
 
 -spec default_help_opt() -> opt().
 %% Returns the option spec for `-h|--help`.
@@ -810,32 +835,60 @@ validate_arg_type(Name, Type) ->
             error({invalid_arg, Name, {bad_type, Type}})
     end.
 
-prepare_opt_help(#{default_in_help := false} = Opt) ->
+prepare_opt_help(Opt0) ->
+    Opt1 = p_opt_help_enum(Opt0),
+    Opt2 = p_opt_help_default(Opt1),
+    Opt2.
+
+p_opt_help_enum(#{enum_in_help := false} = Opt) ->
     Opt;
-prepare_opt_help(#{help := HelpStr, type := boolean, long := LOpt} = Opt) ->
+p_opt_help_enum(#{type := {enum, Enums}} = Opt) ->
+    HelpStr =
+        case maps:get(help, Opt, []) of
+            [] ->
+                "";
+            HelpStr0 ->
+                case binary:last(iolist_to_binary(HelpStr0)) of
+                    $. ->
+                        [HelpStr0, " "];
+                    _ ->
+                        [HelpStr0, ". "]
+                end
+        end,
+    EnumStr =
+        ["One of ", lists:join(", ", [?a2l(E) || E <- Enums]), "."],
+    Opt#{help => [HelpStr, EnumStr]};
+p_opt_help_enum(Opt) ->
+    Opt.
+
+
+p_opt_help_default(#{default_in_help := false} = Opt) ->
+    Opt;
+p_opt_help_default(#{help := HelpStr, type := boolean, long := LOpt} = Opt) ->
     DefStr =
         case maps:get(default, Opt, false) of
             true -> [" (default: ", LOpt, ")"];
             false -> [" (default: no-", LOpt, ")"]
         end,
     Opt#{help => [HelpStr, DefStr]};
-prepare_opt_help(#{type := boolean, long := LOpt} = Opt) ->
+p_opt_help_default(#{type := boolean, long := LOpt} = Opt) ->
     DefStr =
         case maps:get(default, Opt, false) of
             true -> ["Default: ", LOpt];
             false -> ["Default: no-", LOpt]
         end,
     Opt#{help => DefStr};
-prepare_opt_help(#{type := boolean} = Opt) ->
+p_opt_help_default(#{type := boolean} = Opt) ->
     Opt;
-prepare_opt_help(#{default := Default, help := HelpStr} = Opt) ->
+p_opt_help_default(#{default := Default, help := HelpStr} = Opt) ->
     DefStr = io_lib:format(" (default: ~p)", [Default]),
     Opt#{help => [HelpStr, DefStr]};
-prepare_opt_help(#{default := Default} = Opt) ->
+p_opt_help_default(#{default := Default} = Opt) ->
     DefStr = io_lib:format("Default: ~p", [Default]),
     Opt#{help => DefStr};
-prepare_opt_help(Opt) ->
+p_opt_help_default(Opt) ->
     Opt.
+
 
 prepare_opt_default(#{default := _} = Opt) ->
     Opt;
@@ -1292,10 +1345,51 @@ fmt_error_usage(#{cmd := CmdStr} = Cmd, ParseOpts) ->
      end,
      ?nl].
 
+fmt_cmd_help(#{help := {doc, Doc}}, {W, _C}) ->
+    fmt_doc(Doc, W, 2);
 fmt_cmd_help(#{help := Help}, {W, _C}) ->
-    [prettypr:format(prettypr:nest(2, prettypr:text_par(Help)), W, W), ?nl];
+    Pars = string:split(Help, "\n\n", all),
+    fmt_doc([{p, Text} || Text <- Pars], W, 2);
 fmt_cmd_help(_, _) ->
     "".
+
+fmt_doc([{p, Text} | T], W, C) ->
+    [prettypr:format(prettypr:nest(C, prettypr:text_par(Text)), W, W), ?nl,
+     break(T) |
+     fmt_doc(T, W, C)];
+fmt_doc([{ul, Text, Items} | T], W, C) ->
+    TC = C + 4,
+    [prettypr:format(prettypr:nest(C, prettypr:text_par(Text)), W, W), ?nl,
+     [fmt_list_item([sp(C+2), "o"], ItemText, W-TC, TC) || ItemText <- Items],
+     break(T) |
+     fmt_doc(T, W, C)];
+fmt_doc([{dl, Text, Items} | T], W, C) ->
+     MaxDefL = 8 + lists:max([length(Def) || {Def, _} <- Items]),
+     TC = if MaxDefL >= W -> 8;
+            true -> MaxDefL
+         end,
+    [prettypr:format(prettypr:nest(2, prettypr:text_par(Text)), W, W), ?nl,
+     [fmt_list_item(["    ", Def], ItemText, W-TC, TC) ||
+         {Def, ItemText} <- Items],
+     break(T) |
+     fmt_doc(T, W, C)];
+fmt_doc([{pre, Text} | T], W, C) ->
+    Lines = split_lines(Text),
+    [[[sp(C), Line, ?nl] || Line <- Lines],
+     break(T) |
+     fmt_doc(T, W, C)];
+fmt_doc([{doc, Doc} | T], W, C) ->
+    [fmt_doc(Doc, W, C+2),
+     break(T) |
+     fmt_doc(T, W, C)];
+fmt_doc([], _, _) ->
+    [].
+
+sp(N) ->
+    lists:duplicate(N, $\s).
+
+break([]) -> [];
+break(_) -> ?nl.
 
 fmt_opts(#{opts := Opts}, MStyle, Sz) when Opts /= [] ->
     OptsSections = mk_sections(Opts, "Options"),
@@ -1337,7 +1431,7 @@ fmt_opt(Opt, MStyle, Sz) ->
     case Opt of
         #{help := HelpStr} ->
             {W, C} = Sz,
-            fmt_item_help(Pre, HelpStr, W, C);
+            fmt_list_item(Pre, HelpStr, W, C);
         _ ->
             [Pre, ?nl]
     end.
@@ -1424,25 +1518,29 @@ fmt_cmd(#{cmd := CmdStr} = Cmd, W, C) ->
         #{help := hidden} ->
             [];
         #{short_help := ShortHelpStr} ->
-            fmt_item_help(Pre, ShortHelpStr, W, C);
+            fmt_list_item(Pre, ShortHelpStr, W, C);
         #{help := HelpStr} ->
             ShortHelpStr = first_sentence(HelpStr),
-            fmt_item_help(Pre, ShortHelpStr, W, C);
+            fmt_list_item(Pre, ShortHelpStr, W, C);
         _ ->
             [Pre, ?nl]
     end.
 
-fmt_item_help(Pre, HelpStr, W, C) ->
+fmt_list_item(Pre, Str, W, C) ->
     [FirstL | RestLs] = Ls =
         split_lines(
-          prettypr:format(prettypr:text_par(HelpStr), W-C, W-C)),
-    PreLen = length(Pre),
+          prettypr:format(prettypr:text_par(Str), W-C, W-C)),
+    PreLen = string:length(Pre),
     if PreLen < C ->
             [string:pad(Pre, C), FirstL, ?nl |
-             [[lists:duplicate(C, $\s), L, ?nl] || L <- RestLs]];
-       true ->
+             [[sp(C), L, ?nl] || L <- RestLs]];
+       PreLen < W ->
             [Pre, ?nl,
-             [[lists:duplicate(C, $\s), L, ?nl] || L <- Ls]]
+             [[sp(C), L, ?nl] || L <- Ls]];
+       true ->
+            [prettypr:format(prettypr:text_par(Pre), W, W),
+             ?nl,
+             [[sp(C), L, ?nl] || L <- Ls]]
     end.
 
 fmt_metavar(Word, caps) ->
