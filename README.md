@@ -19,7 +19,7 @@ spec() ->
     #{help => "Simple program that greets NAME for a total of COUNT times.",
       opts => [#{long => "name", required => true,
                  help => "The person to greet"},
-               #{long => "count", default => 1,
+               #{short => $c, long => "count", default => 1,
                  help => "Number of greetings"}],
       cb => fun hello/4}.
 
@@ -52,7 +52,7 @@ Options:
                              parameter is given, a guess will be made based on
                              $SHELL.
       --name NAME            The person to greet
-      --count COUNT          Number of greetings (default: 1)
+  -c, --count COUNT          Number of greetings (default: 1)
 ```
 
 And it automatically generates shell completion scripts:
