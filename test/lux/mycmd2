@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! -pa ../ebin
+%%! -pa ../../ebin
 
 main(Args) ->
     eclip:parse(Args, spec(), #{}).

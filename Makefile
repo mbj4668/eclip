@@ -1,22 +1,9 @@
-PROJECT = eclip
-PROJECT_DESCRIPTION = Erlang library for command line parsing
-PROJECT_VERSION = 1.1.0
+include erl.mk
 
-TEST_DEPS = lux
+erl.mk:
+	curl -O https://raw.githubusercontent.com/mbj4668/erl.mk/main/$@
 
-include $(if $(ERLANG_MK_FILENAME),$(ERLANG_MK_FILENAME),erlang.mk)
-
-all :: doc/eclip.md
+all: doc/eclip.md
 
 doc/eclip.md: src/eclip.erl
 	tools/gen-md.sh $< > $@
-
-tests ::
-	$(MAKE) lux
-
-.PHONY: lux
-lux:
-	deps/lux/bin/lux test
-
-clean ::
-	rm -rf lux_logs
