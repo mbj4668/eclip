@@ -1,3 +1,7 @@
+BUILD_DEPS = erl_md
+
+dep_erl_md = git https://github.com/mbj4668/erl_md
+
 include erl.mk
 
 erl.mk:
@@ -6,4 +10,4 @@ erl.mk:
 all: doc/eclip.md
 
 doc/eclip.md: src/eclip.erl
-	tools/gen-md.sh $< > $@
+	deps/erl_md/gen-md.sh $< > $@
