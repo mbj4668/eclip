@@ -10,4 +10,4 @@ erl.mk:
 all: doc/eclip.md
 
 doc/eclip.md: src/eclip.erl
-	deps/erl_md/gen-md.sh $< > $@
+	$(DEPS_DIR)/erl_md/gen-md.sh $< > $@
