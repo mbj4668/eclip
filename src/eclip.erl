@@ -1519,6 +1519,10 @@ fmt_cmd(#{cmd := CmdStr} = Cmd, W, C) ->
             [];
         #{short_help := ShortHelpStr} ->
             fmt_list_item(Pre, ShortHelpStr, W, C);
+        #{help := {doc, Doc}} ->
+            HelpStr = binary_to_list(iolist_to_binary(fmt_doc(Doc, W, C))),
+            ShortHelpStr = first_sentence(string:strip(HelpStr)),
+            fmt_list_item(Pre, ShortHelpStr, W, C);
         #{help := HelpStr} ->
             ShortHelpStr = first_sentence(HelpStr),
             fmt_list_item(Pre, ShortHelpStr, W, C);
