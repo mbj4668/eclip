@@ -255,7 +255,7 @@
 
 
 
-%% A callback function in an `opt`.  It is invoked it the option is
+%% A callback function in an `opt`.  It is invoked if the option is
 %% given on the command line.
 %%
 %% The callback is called with the options gathered so far, and it
@@ -267,7 +267,7 @@
 
 
 %% The `parse_env()` contains the `cmd()` spec for the selected command
-%% or subcommand, and the `parse_opts()` from the `parse()` call.
+%% or subcommand, and the `parse_opts()` given to the `parse()` call.
 -type parse_env() :: {cmd(), parse_opts()}.
 
 -type parse_result() ::

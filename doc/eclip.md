@@ -348,7 +348,7 @@ The return value of a callback defined in `cmd`.
 ### <a name="type_parse_env">parse_env()</a>
 
 The `parse_env()` contains the `cmd()` spec for the selected command
-or subcommand, and the `parse_opts()` from the `parse()` call.
+or subcommand, and the `parse_opts()` given to the `parse()` call.
 <pre><code>-type <a href="#type_parse_env">parse_env()</a> :: {<a href="#type_cmd">cmd()</a>, <a href="#type_parse_opts">parse_opts()</a>}.
 </code></pre>
 
