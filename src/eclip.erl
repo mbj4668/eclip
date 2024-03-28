@@ -3,7 +3,7 @@
 -module(eclip).
 
 -export([parse/2, parse/3]).
--export([fmt_help/1, print_help/1, print_help/2]).
+-export([fmt_help/2, fmt_help/3, print_help/2, print_help/3]).
 
 -export([default_help_opt/0,
          default_version_opt/0,
@@ -16,7 +16,7 @@
               cmd_cb/0, cmd_cb_res/0,
 
               parse_result/0,
-              result_opts/0, result_args/0, result_cmd_stack/0,
+              result_opts/0, result_args/0, cmd_stack/0,
               optval/0, argval/0,
               parse_opts/0, parse_env/0,
 
@@ -239,7 +239,7 @@
 %%
 %% - The first parameter is `parse_env()` (where `cmd()` is the
 %%   spec for this cmd).
-%% - The second parameter is `result_cmd_stack()`, i.e., the result of
+%% - The second parameter is `cmd_stack()`, i.e., the result of
 %%   parsing all ancestor commands.
 %% - Then follows each option value, and then each argument value; these
 %%   are `undefined` if not given or have defaults.
@@ -254,7 +254,6 @@
       | {error, ErrMsg :: string(), Error :: term()}.
 
 
-
 %% A callback function in an `opt`.  It is invoked if the option is
 %% given on the command line.
 %%
@@ -263,7 +262,8 @@
 %% parsing by throwing `{done, term()}`.  This is useful
 %% e.g., to implement `--version` or `--help`.  An option that
 %% throws '{done, term()}' is called an eager option.
--type opt_cb() :: fun((parse_env(), result_opts()) -> result_opts()).
+-type opt_cb() :: fun((parse_env(), result_opts(), cmd_stack()) ->
+                             result_opts()).
 
 
 %% The `parse_env()` contains the `cmd()` spec for the selected command
@@ -276,7 +276,7 @@
 
          %% If `CmdName` is a subcommand, `CmdStack` contains the
          %% selected ancestor commands and the options given to them.
-         CmdStack :: result_cmd_stack(),
+         CmdStack :: cmd_stack(),
 
          %% The options given to `CmdName`.
          Opts :: result_opts(),
@@ -310,8 +310,8 @@
       | term()     % if argtype is 'custom'
       .
 
--type result_cmd_stack() ::
-        [{CmdName :: atom(),
+-type cmd_stack() ::
+        [{cmd(),
           Opts :: result_opts()}].
 
 
@@ -364,23 +364,23 @@
 %% Returns the option spec for `-h|--help`.
 default_help_opt() ->
     #{name => help, short => $h, long => "help", type => flag,
-      expose_value => false, cb => fun opt_help/2,
+      expose_value => false, cb => fun opt_help/3,
       help => "Show this help and exit"}.
 
--spec opt_help(parse_env(), result_opts()) -> no_return().
-opt_help(Env, _) ->
-    print_help(Env),
+-spec opt_help(parse_env(), result_opts(), cmd_stack()) -> no_return().
+opt_help(Env, _Opts, CmdStack) ->
+    print_help(standard_io, Env, CmdStack),
     throw({done, ok}).
 
 -spec default_version_opt() -> opt().
 %% Returns the option spec for `--version`.
 default_version_opt() ->
     #{name => version, long => "version", type => flag,
-      expose_value => false, cb => fun opt_version/2,
+      expose_value => false, cb => fun opt_version/3,
       help => "Print current version and exit"}.
 
--spec opt_version(parse_env(), result_opts()) -> no_return().
-opt_version({#{name := Cmd}, #{version := Vsn}}, _) ->
+-spec opt_version(parse_env(), result_opts(), cmd_stack()) -> no_return().
+opt_version({#{name := Cmd}, #{version := Vsn}}, _, _) ->
     io:format("~ts ~ts\n", [Cmd, Vsn]),
     throw({done, ok}).
 
@@ -392,10 +392,10 @@ default_completion_opt() ->
       expose_value => false,
       help => "Print sourceable bash/zsh completion script. "
               "If no parameter is given, a guess will be made based on $SHELL.",
-      cb => fun opt_completion/2}.
+      cb => fun opt_completion/3}.
 
--spec opt_completion(parse_env(), result_opts()) -> no_return().
-opt_completion({#{cmd := Cmd}, _}, ResultOpts) ->
+-spec opt_completion(parse_env(), result_opts(), cmd_stack()) -> no_return().
+opt_completion({#{cmd := Cmd}, _}, ResultOpts, _) ->
     Shell =
         case maps:find(completion, ResultOpts) of
             {ok, #{shell := Shell0}} when Shell0 /= undefined ->
@@ -488,7 +488,7 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
                           standard_error,
                           ["Error: ", fmt_error(Error),
                            ?nl, ?nl,
-                           fmt_error_usage(Cmd3, ParseOpts)]),
+                           fmt_error_usage(Cmd3, [], ParseOpts)]),
                         halt(1);
                     false ->
                         ok
@@ -523,7 +523,8 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
     of
         {ok, RestCmdLine, ResultOpts0} ->
             case
-                set_defaults(maps:get(opts, Cmd, []), ResultOpts0, CmdStr, Env)
+                set_defaults(maps:get(opts, Cmd, []), ResultOpts0,
+                             CmdStr, Env, CmdStack)
             of
                 {ok, ResultOpts} ->
                     case maps:get(args, Cmd, undefined) of
@@ -533,10 +534,9 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
                                     {error,
                                      {unexpected_args, CmdStr, RestCmdLine}};
                                 CmdMap ->
-                                    CmdName = maps:get(name, Cmd),
                                     parse_sub_cmd(RestCmdLine, CmdMap, CmdStr,
                                                   Env,
-                                                  [{CmdName, ResultOpts} |
+                                                  [{Cmd, ResultOpts} |
                                                    CmdStack])
                             end;
                         undefined ->
@@ -550,7 +550,8 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
                                 {ok, [], ResultArgs0} ->
                                     {ok, ResultArgs} =
                                         set_defaults(maps:get(args, Cmd, []),
-                                                     ResultArgs0, CmdStr, Env),
+                                                     ResultArgs0, CmdStr, Env,
+                                                     CmdStack),
                                     handle_parsed_cmd(Cmd, Env, ResultOpts,
                                                       ResultArgs, CmdStack);
                                 {ok, RestCmdLine1, _} ->
@@ -598,35 +599,35 @@ handle_parsed_cmd(Cmd, Env, ResultOpts, ResultArgs, CmdStack) ->
             {ok, {Env, CmdStack, ResultOpts, ResultArgs}}
     end.
 
-set_defaults(Items, ResultMap, CmdStr, Env) ->
+set_defaults(Items, ResultMap, CmdStr, Env, CmdStack) ->
     case is_completion(Env) of
         true ->
             {ok, ResultMap};
         false ->
-            set_defaults0(Items, ResultMap, CmdStr, Env)
+            set_defaults0(Items, ResultMap, CmdStr, Env, CmdStack)
     end.
 
 set_defaults0([#{name := Name, default := Default} = H | T], ResultMap0,
-              CmdStr, Env) ->
+              CmdStr, Env, CmdStack) ->
     case maps:is_key(Name, ResultMap0) of
         true ->
-            set_defaults0(T, ResultMap0, CmdStr, Env);
+            set_defaults0(T, ResultMap0, CmdStr, Env, CmdStack);
         false ->
             ResultMap1 = ResultMap0#{Name => Default},
             ResultMap2 =
                 case H of
                     #{cb := Cb} ->
-                        Cb(Env, ResultMap1);
+                        Cb(Env, ResultMap1, CmdStack);
                     _ ->
                         ResultMap1
                 end,
-            set_defaults0(T, ResultMap2, CmdStr, Env)
+            set_defaults0(T, ResultMap2, CmdStr, Env, CmdStack)
     end;
 set_defaults0([#{name := Name, required := true} = H | T], ResultMap,
-              CmdStr, Env) ->
+              CmdStr, Env, CmdStack) ->
     case maps:is_key(Name, ResultMap) of
         true ->
-            set_defaults0(T, ResultMap, CmdStr, Env);
+            set_defaults0(T, ResultMap, CmdStr, Env, CmdStack);
         false ->
             OptStr =
                 case {maps:get(short, H, undef), maps:get(long, H, undef)} of
@@ -639,9 +640,9 @@ set_defaults0([#{name := Name, required := true} = H | T], ResultMap,
                 end,
             {error, {expected_opt, CmdStr, OptStr}}
     end;
-set_defaults0([_ | T], ResultMap, CmdStr, Env) ->
-    set_defaults0(T, ResultMap, CmdStr, Env);
-set_defaults0([], ResultMap, _CmdStr, _Env) ->
+set_defaults0([_ | T], ResultMap, CmdStr, Env, CmdStack) ->
+    set_defaults0(T, ResultMap, CmdStr, Env, CmdStack);
+set_defaults0([], ResultMap, _CmdStr, _Env, _CmdStack) ->
     {ok, ResultMap}.
 
 get_val(#{name := Name} = Item, ResultItems) ->
@@ -1002,7 +1003,8 @@ parse_sopts([SOpt | T], Args, Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
           when Type =:= count;
                Type =:= flag;
                Type =:= boolean ->
-            {ok, [], OptsAcc1} = handle_opt(Opt, short, [], OptsAcc0, Env),
+            {ok, [], OptsAcc1} =
+                handle_opt(Opt, short, [], OptsAcc0, Env, CmdStack),
             parse_sopts(T, Args, Opts, CmdStr, Env, OptsAcc1, CmdStack);
         {ok, _} ->
             {error, {opt_needs_argument, CmdStr, [$-, SOpt]}};
@@ -1040,23 +1042,23 @@ opt_str(long, GivenOpt) ->
 
 handle_opt_and_continue(Opt, Style, Args0, Opts, CmdStr, Env,
                         OptsAcc0, CmdStack) ->
-    case handle_opt(Opt, Style, Args0, OptsAcc0, Env) of
+    case handle_opt(Opt, Style, Args0, OptsAcc0, Env, CmdStack) of
         {ok, Args1, OptsAcc1} ->
             parse_opts(Args1, Opts, CmdStr, Env, OptsAcc1, CmdStack);
         Error ->
             Error
     end.
 
-handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env) ->
+handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env, CmdStack) ->
     Multiple = maps:get(multiple, Opt, false),
     case Opt of
         #{type := count} ->
             Cnt0 = maps:get(Name, OptsAcc, 0),
-            ret_opt(Opt, CmdLine0, OptsAcc, Cnt0 + 1, Env);
+            ret_opt(Opt, CmdLine0, OptsAcc, Cnt0 + 1, Env, CmdStack);
         #{type := flag} ->
-            ret_opt(Opt, CmdLine0, OptsAcc, true, Env);
+            ret_opt(Opt, CmdLine0, OptsAcc, true, Env, CmdStack);
         #{type := boolean} ->
-            ret_opt(Opt, CmdLine0, OptsAcc, true, Env);
+            ret_opt(Opt, CmdLine0, OptsAcc, true, Env, CmdStack);
         #{type := Type} ->
             Arg =
                 if is_map(Type) ->
@@ -1069,33 +1071,39 @@ handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env) ->
                 parse_args([Arg], CmdLine0, StopOnOpt, {opt, Style, Opt}, Env)
             of
                 {ok, CmdLine1, #{Name := ArgVal}} when not Multiple ->
-                    ret_opt(Opt, CmdLine1, OptsAcc, ArgVal, Env);
+                    ret_opt(Opt, CmdLine1, OptsAcc, ArgVal, Env, CmdStack);
                 {ok, CmdLine1, #{Name := ArgVal}} ->
                     ArgVals = maps:get(Name, OptsAcc, []),
-                    ret_opt(Opt, CmdLine1, OptsAcc, ArgVals ++ [ArgVal], Env);
+                    ret_opt(Opt, CmdLine1, OptsAcc,
+                            ArgVals ++ [ArgVal], Env, CmdStack);
                 Else ->
                     Else
             end;
         #{args := ArgSpecs} ->
             case parse_args(ArgSpecs, CmdLine0, true, {opt, Style, Opt}, Env) of
                 {ok, CmdLine1, ResultArgs} when not Multiple ->
-                    ret_opt(Opt, CmdLine1, OptsAcc, ResultArgs, Env);
+                    ret_opt(Opt, CmdLine1, OptsAcc, ResultArgs, Env, CmdStack);
                 {ok, CmdLine1, ResultArgs} ->
                     ResultArgsL = maps:get(Name, OptsAcc, []),
                     ret_opt(Opt, CmdLine1, OptsAcc,
-                            ResultArgsL ++ [ResultArgs], Env);
+                            ResultArgsL ++ [ResultArgs], Env, CmdStack);
                 Else ->
                     Else
             end
     end.
 
-ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env) ->
+ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env, CmdStack) ->
     IsCompletion = is_completion(Env),
     OptsAcc1 = OptsAcc0#{Name => NewVal},
     OptsAcc2 =
         case Opt of
             #{cb := Cb} when not IsCompletion ->
-                Cb(Env, OptsAcc1);
+                case erlang:fun_info(Cb, arity) of
+                    {arity, 2} ->
+                        Cb(Env, OptsAcc1);
+                    {arity, 3} ->
+                        Cb(Env, OptsAcc1, CmdStack)
+                end;
             _ ->
                 OptsAcc1
         end,
@@ -1271,16 +1279,16 @@ chk_ranges([_ | T], Val) ->
 
 %%% Help formatting
 
-%% @print_help/1
--spec print_help(Env :: parse_env()) -> ok.
-%% Equivalent to `print_help(standard_io, Env)`.
-print_help(Env) ->
-    print_help(standard_io, Env).
-
 %% @print_help/2
--spec print_help(io:device(), Env :: parse_env()) -> ok.
+-spec print_help(Env :: parse_env(), CmdStack :: cmd_stack()) -> ok.
+%% Equivalent to `print_help(standard_io, Env, CmdStack)`.
+print_help(Env, CmdStack) ->
+    print_help(standard_io, Env, CmdStack).
+
+%% @print_help/3
+-spec print_help(io:device(), parse_env(), cmd_stack()) -> ok.
 %% Prints the help text to the given io device.
-print_help(Fd, Env) ->
+print_help(Fd, Env, CmdStack) ->
     Width =
         case io:columns(Fd) of
             {ok, Cols} ->
@@ -1290,30 +1298,37 @@ print_help(Fd, Env) ->
                 79
         end,
     Col = ceil(Width / 2.8), % carefully selected to get 29 when Width is 79
-    io:put_chars(Fd, fmt_help(Env, {Width, Col})).
+    io:put_chars(Fd, fmt_help(Env, CmdStack, {Width, Col})).
 
-%% @fmt_help/1
--spec fmt_help(Env :: parse_env()) -> unicode:chardata().
-%% Equivalent to `fmt_help(Env, {79, 29})`.
-fmt_help(Env) ->
-    fmt_help(Env, {79, 29}).
+%% @fmt_help/2
+-spec fmt_help(Env :: parse_env(), CmdStack :: cmd_stack()) ->
+          unicode:chardata().
+%% Equivalent to `fmt_help(Env, CmdStack, {79, 29})`.
+fmt_help(Env, CmdStack) ->
+    fmt_help(Env, CmdStack, {79, 29}).
 
-%% @fmt_help/1
--spec fmt_help(Env :: parse_env(),
-               {Width :: integer(), Col :: integer()}) ->
+%% @fmt_help/3
+-spec fmt_help(parse_env(),
+               cmd_stack(),
+               Sz :: {Width :: integer(), Col :: integer()}) ->
           unicode:chardata().
 %% Formats the help text with the given `Width` and help text starting
 %% at column `Col`.
-fmt_help({Cmd, ParseOpts}, Sz) ->
+fmt_help({Cmd, ParseOpts}, CmdStack, Sz) ->
     MStyle = maps:get(metavar_style, ParseOpts, caps),
     Sections =
-        [fmt_usage(Cmd, MStyle),
+        [fmt_usage(Cmd, CmdStack, MStyle),
          fmt_cmd_help(Cmd, Sz),
          fmt_opts(Cmd, MStyle, Sz),
          fmt_cmds(Cmd, Sz)],
     lists:join(?nl, [S || S <- Sections, S /= ""]).
 
-fmt_usage(#{cmd := CmdStr} =  Cmd, MStyle) ->
+fmt_usage(#{cmd := CmdStr0} = Cmd, CmdStack, MStyle) ->
+    CmdStr =
+        lists:join($\s,
+                   lists:foldl(fun({#{cmd := CmdStr1}, _}, Acc) ->
+                                       [CmdStr1 | Acc]
+                               end, [CmdStr0], CmdStack)),
     OptionsStr =
         case maps:get(opts, Cmd, []) of
             [] ->
@@ -1334,9 +1349,9 @@ fmt_usage(#{cmd := CmdStr} =  Cmd, MStyle) ->
             ["Usage: ", CmdStr, OptionsStr, ?nl]
     end.
 
-fmt_error_usage(#{cmd := CmdStr} = Cmd, ParseOpts) ->
+fmt_error_usage(#{cmd := CmdStr} = Cmd, CmdStack, ParseOpts) ->
     MStyle = maps:get(metavar_style, ParseOpts, caps),
-    [fmt_usage(Cmd, MStyle),
+    [fmt_usage(Cmd, CmdStack, MStyle),
      case maps:get(default_help_opt, ParseOpts, true) of
          true ->
              ["Try '", CmdStr, " --help' for more information."];

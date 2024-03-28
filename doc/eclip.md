@@ -235,7 +235,7 @@ and for the other case, the function is called as:
 
 - The first parameter is `parse_env()` (where `cmd()` is the
 spec for this cmd).
-- The second parameter is `result_cmd_stack()`, i.e., the result of
+- The second parameter is `cmd_stack()`, i.e., the result of
 parsing all ancestor commands.
 - Then follows each option value, and then each argument value; these
 are `undefined` if not given or have defaults.
@@ -261,7 +261,7 @@ The return value of a callback defined in `cmd`.
 
          <span style="color:indianred">%% If `CmdName` is a subcommand, `CmdStack` contains the</span>
          <span style="color:indianred">%% selected ancestor commands and the options given to them.</span>
-         CmdStack :: <a href="#type_result_cmd_stack">result_cmd_stack()</a>,
+         CmdStack :: <a href="#type_cmd_stack">cmd_stack()</a>,
 
          <span style="color:indianred">%% The options given to `CmdName`.</span>
          Opts :: <a href="#type_result_opts">result_opts()</a>,
@@ -287,10 +287,10 @@ The return value of a callback defined in `cmd`.
          }.
 </code></pre>
 
-### <a name="type_result_cmd_stack">result_cmd_stack()</a>
+### <a name="type_cmd_stack">cmd_stack()</a>
 
-<pre><code>-type <a href="#type_result_cmd_stack">result_cmd_stack()</a> ::
-        [{CmdName :: atom(),
+<pre><code>-type <a href="#type_cmd_stack">cmd_stack()</a> ::
+        [{<a href="#type_cmd">cmd()</a>,
           Opts :: <a href="#type_result_opts">result_opts()</a>}].
 </code></pre>
 
@@ -428,29 +428,32 @@ If any option's callback throws `{done, term()}`, this is returned.
 Otherwise, parsing succeeds and no callback was invoked, the
 `parse` function returns `{ok, parse_result()}`.
 
-### <a name="func_fmt_help">fmt_help/1</a>
+### <a name="func_fmt_help">fmt_help/2</a>
 
-<pre><code>-spec fmt_help(Env :: <a href="#type_parse_env">parse_env()</a>) -> unicode:<a href="#type_chardata">chardata()</a>.
+<pre><code>-spec fmt_help(Env :: <a href="#type_parse_env">parse_env()</a>, CmdStack :: <a href="#type_cmd_stack">cmd_stack()</a>) ->
+          unicode:<a href="#type_chardata">chardata()</a>.
 </code></pre>
-Equivalent to `fmt_help(Env, {79, 29})`.
-### <a name="func_fmt_help">fmt_help/1</a>
+Equivalent to `fmt_help(Env, CmdStack, {79, 29})`.
 
-<pre><code>-spec fmt_help(Env :: <a href="#type_parse_env">parse_env()</a>,
-               {Width :: integer(), Col :: integer()}) ->
+### <a name="func_fmt_help">fmt_help/3</a>
+
+<pre><code>-spec fmt_help(<a href="#type_parse_env">parse_env()</a>,
+               <a href="#type_cmd_stack">cmd_stack()</a>,
+               Sz :: {Width :: integer(), Col :: integer()}) ->
           unicode:<a href="#type_chardata">chardata()</a>.
 </code></pre>
 Formats the help text with the given `Width` and help text starting
 at column `Col`.
 
-### <a name="func_print_help">print_help/1</a>
-
-<pre><code>-spec print_help(Env :: <a href="#type_parse_env">parse_env()</a>) -> ok.
-</code></pre>
-Equivalent to `print_help(standard_io, Env)`.
-
 ### <a name="func_print_help">print_help/2</a>
 
-<pre><code>-spec print_help(io:<a href="#type_device">device()</a>, Env :: <a href="#type_parse_env">parse_env()</a>) -> ok.
+<pre><code>-spec print_help(Env :: <a href="#type_parse_env">parse_env()</a>, CmdStack :: <a href="#type_cmd_stack">cmd_stack()</a>) -> ok.
+</code></pre>
+Equivalent to `print_help(standard_io, Env, CmdStack)`.
+
+### <a name="func_print_help">print_help/3</a>
+
+<pre><code>-spec print_help(io:<a href="#type_device">device()</a>, <a href="#type_parse_env">parse_env()</a>, <a href="#type_cmd_stack">cmd_stack()</a>) -> ok.
 </code></pre>
 Prints the help text to the given io device.
 

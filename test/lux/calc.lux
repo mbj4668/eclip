@@ -43,9 +43,15 @@
     [sleep 1]
     ~${_TAB_}
     ?cos     sin     tan     --help  -h
+    ?SH-PROMPT
     !
     ?SH-PROMPT
     
+    !./calc sum -h
+    ??Usage: calc sum [OPTIONS] TERM...
+    ?SH-PROMPT
+
+
 [shell test-errors]
     !./calc
     ?Error: expected subcommand to calc

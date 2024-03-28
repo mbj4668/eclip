@@ -36,5 +36,10 @@ spec() ->
       cb => fun maincmd/1}.
 
 maincmd(X) ->
-    io:format("~p\n", [X]).
-
+    io:format("~p\n", [X]),
+    {_, _, ROpts, _} = X,
+    lists:foreach(
+      fun(K) ->
+              io:format("~w :: ~p\n", [K, maps:get(K, ROpts)])
+      end,
+      lists:sort(maps:keys(ROpts))).

@@ -521,6 +521,15 @@ Options:
   -h, --help                 Show this help and exit
 ```
 
+# Changes in 2.0.0
+
+- The type `result_cmd_stack()` is renamed to `cmd_stack()`, and
+  the first element is a `cmd()` instead of the command's `name`.
+- The option callback function (type `opt_cb()`) now takes a third
+  parameter `cmd_stack()`.
+- The function `fmt_help/1` has been replaced by `fmt_help/2`.
+- The functions `print_help/1,2` have been replaced by
+  `print_help/2,3`.
 
 # Related work
 
