@@ -3,6 +3,7 @@
 -module(eclip).
 
 -export([parse/2, parse/3]).
+-export([fmt_error/1]).
 -export([fmt_help/2, fmt_help/3, print_help/2, print_help/3]).
 
 -export([default_help_opt/0,
@@ -476,11 +477,8 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
                     {true, CmdLine1, ParseOpts0#{'_comp_word' => CompWord}}
             end,
         case parse_cmd(CmdLine, Cmd3, ParseOpts, []) of
-            {ok, ParseRes} when IsCompletion ->
-                print_suggestions(ParseRes),
-                halt(0);
-            _ when IsCompletion ->
-                halt(1);
+            Res when IsCompletion ->
+                return_completion(Res, ParseOpts);
             {error, _} = Error ->
                 case maps:get(print_usage_on_error, ParseOpts, true) of
                     true ->
@@ -521,7 +519,7 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
     case
         parse_opts(CmdLine, maps:get(opts, Cmd), CmdStr, Env, #{}, CmdStack)
     of
-        {ok, RestCmdLine, ResultOpts0} ->
+        {ok, RestCmdLine, ResultOpts0, OptsDone} ->
             case
                 set_defaults(maps:get(opts, Cmd, []), ResultOpts0,
                              CmdStr, Env, CmdStack)
@@ -544,7 +542,7 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
                                               CmdStack);
                         Args ->
                             case
-                                parse_args(Args, RestCmdLine, false,
+                                parse_args(Args, RestCmdLine, false, OptsDone,
                                            {cmd, CmdStr}, Env)
                             of
                                 {ok, [], ResultArgs0} ->
@@ -959,7 +957,7 @@ validate_nargs([], _) ->
     ok.
 
 parse_opts(["--" | T], _Opts, _CmdStr, _Env, OptsAcc, _CmdStack) ->
-    {ok, T, OptsAcc};
+    {ok, T, OptsAcc, true};
 parse_opts(["--no-" ++ LOpt | T], Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
     %% first check if this is a boolean option
     case match_opt(LOpt, long, Opts, CmdStr, OptsAcc0) of
@@ -976,7 +974,7 @@ parse_opts(["-" ++ SOptL | T], Opts, CmdStr, Env, OptsAcc, CmdStack)
   when SOptL /= [] ->
     parse_sopts(SOptL, T, Opts, CmdStr, Env, OptsAcc, CmdStack);
 parse_opts(RestCmdLine, _Opts, _CmdStr, _Env, OptsAcc, _CmdStack) ->
-    {ok, RestCmdLine, OptsAcc}.
+    {ok, RestCmdLine, OptsAcc, false}.
 
 parse_lopt(LOpt, Args, Opts, CmdStr, Env, OptsAcc, CmdStack) ->
     case match_opt(LOpt, long, Opts, CmdStr, OptsAcc) of
@@ -1068,7 +1066,8 @@ handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env, CmdStack) ->
                 end,
             StopOnOpt = maps:get(nargs, Arg, 1) == '?',
             case
-                parse_args([Arg], CmdLine0, StopOnOpt, {opt, Style, Opt}, Env)
+                parse_args([Arg], CmdLine0, StopOnOpt, false,
+                           {opt, Style, Opt}, Env)
             of
                 {ok, CmdLine1, #{Name := ArgVal}} when not Multiple ->
                     ret_opt(Opt, CmdLine1, OptsAcc, ArgVal, Env, CmdStack);
@@ -1080,7 +1079,8 @@ handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env, CmdStack) ->
                     Else
             end;
         #{args := ArgSpecs} ->
-            case parse_args(ArgSpecs, CmdLine0, true, {opt, Style, Opt}, Env) of
+            case parse_args(ArgSpecs, CmdLine0, true, false,
+                            {opt, Style, Opt}, Env) of
                 {ok, CmdLine1, ResultArgs} when not Multiple ->
                     ret_opt(Opt, CmdLine1, OptsAcc, ResultArgs, Env, CmdStack);
                 {ok, CmdLine1, ResultArgs} ->
@@ -1098,47 +1098,46 @@ ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env, CmdStack) ->
     OptsAcc2 =
         case Opt of
             #{cb := Cb} when not IsCompletion ->
-                case erlang:fun_info(Cb, arity) of
-                    {arity, 2} ->
-                        Cb(Env, OptsAcc1);
-                    {arity, 3} ->
-                        Cb(Env, OptsAcc1, CmdStack)
-                end;
+                Cb(Env, OptsAcc1, CmdStack);
             _ ->
                 OptsAcc1
         end,
     {ok, CmdLine, OptsAcc2}.
 
 
-parse_args(ArgSpecs, CmdLine, StopOnOpt, From, Env) ->
-    parse_args(ArgSpecs, CmdLine, StopOnOpt, From, Env, #{}).
+parse_args(ArgSpecs, CmdLine, StopOnOpt, OptsDone, From, Env) ->
+    parse_args(ArgSpecs, CmdLine, StopOnOpt, OptsDone, From, Env, #{}).
 
-parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, From, Env, Acc) ->
+parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, OptsDone,
+           From, Env, Acc) ->
     Type = maps:get(type, H, string),
     NArgs = maps:get(nargs, H, 1),
-    Compword = get_comp_word(Env),
-    if (Type == dir orelse Type == file)
-       andalso CmdLine0  == []
-       andalso (Compword == undefined orelse hd(Compword) /= $-) ->
-            print_special_suggestion(Type),
-            halt(0);
-       is_integer(NArgs) orelse
+    if is_integer(NArgs) orelse
        ((NArgs == '+' orelse NArgs == '*') andalso CmdLine0 =/= []) ->
             case consume_args(CmdLine0, Type, NArgs) of
                 {ok, CmdLine1, [ArgVal]} when NArgs == 1 ->
-                    parse_args(T, CmdLine1, StopOnOpt, From, Env,
-                               Acc#{Name => ArgVal});
+                    parse_args(T, CmdLine1, StopOnOpt, true,
+                               From, Env, Acc#{Name => ArgVal});
                 {ok, CmdLine1, ArgVals} ->
-                    parse_args(T, CmdLine1, StopOnOpt, From, Env,
-                               Acc#{Name => ArgVals});
+                    parse_args(T, CmdLine1, StopOnOpt, true,
+                               From, Env, Acc#{Name => ArgVals});
                 {error, {Tag, Details}} ->
                     IsOpt = case From of
                                 {opt, _, _} -> true;
                                 _ -> false
                             end,
+                    Compword = get_comp_word(Env),
                     case is_completion(Env) of
-                        true when Tag == missing_args andalso not IsOpt ->
-                            parse_args([], CmdLine0, StopOnOpt, From, Env, Acc);
+                        true when Tag == missing_args
+                                  andalso not IsOpt
+                                  andalso not OptsDone
+                                  andalso (Compword == undefined
+                                           orelse hd(Compword) == $-)->
+                            %% If we're not done w/ options and user either
+                            %% hasn't written anything, or has started to write
+                            %% an option, we end up here and will suggest
+                            %% options and subcmds
+                            {ok, CmdLine0, Acc};
                         _ ->
                             %% Add From to the error message
                             case From of
@@ -1146,7 +1145,8 @@ parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, From, Env, Acc) ->
                                     %% for commands, we print the arg
                                     %% in the error
                                     MV = arg_metavar_env(H, Env),
-                                    {error, {Tag, {arg, MV, CmdStr}, Details}};
+                                    {error, {Tag, {arg, MV, CmdStr, H},
+                                             Details}};
                                 _ ->
                                     {error, {Tag, From, Details}}
                             end
@@ -1154,17 +1154,18 @@ parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, From, Env, Acc) ->
             end;
        (NArgs == '?' orelse NArgs == '*') andalso CmdLine0 =:= [] ->
             Val = maps:get(default, H, undefined),
-            parse_args(T, CmdLine0, StopOnOpt, From, Env, Acc#{Name => Val});
+            parse_args(T, CmdLine0, StopOnOpt, OptsDone,
+                       From, Env, Acc#{Name => Val});
        NArgs == '?' ->
             [Str | CmdLine1] = CmdLine0,
             case match_arg(Str, Type, StopOnOpt) of
                 {ok, ArgVal} ->
-                    parse_args(T, CmdLine1, StopOnOpt, From, Env,
-                               Acc#{Name => ArgVal});
+                    parse_args(T, CmdLine1, StopOnOpt, true,
+                               From, Env, Acc#{Name => ArgVal});
                 nomatch ->
                     Val = maps:get(default, H, undefined),
-                    parse_args(T, CmdLine0, StopOnOpt, From, Env,
-                               Acc#{Name => Val});
+                    parse_args(T, CmdLine0, StopOnOpt, OptsDone,
+                               From, Env, Acc#{Name => Val});
                 Error ->
                     Error
             end;
@@ -1173,10 +1174,10 @@ parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, From, Env, Acc) ->
                 false ->
                     {error, {expected_arg, From}};
                 true ->
-                    parse_args(T, CmdLine0, StopOnOpt, From, Env, Acc)
+                    parse_args(T, CmdLine0, StopOnOpt, OptsDone, From, Env, Acc)
             end
     end;
-parse_args([], CmdLine, _, _, _, Acc) ->
+parse_args([], CmdLine, _, _, _, _, Acc) ->
     {ok, CmdLine, Acc}.
 
 consume_args(Args, Type, NArgs) ->
@@ -1595,6 +1596,8 @@ first_sentence([]) ->
 split_lines(Str) ->
     re:split(Str, "\n", [{return, list}]).
 
+-spec fmt_error({error, term()}) -> iodata().
+%% Formats an error returned fron `parse/2` or `parse/3`.
 fmt_error({error, Reason}) ->
     fmt_error(Reason);
 fmt_error({cb_error, ErrMsg, _}) ->
@@ -1615,7 +1618,7 @@ fmt_error({expected_opt, CmdStr, Opt}) ->
     io_lib:format("expected option \"~s\" to ~s", [Opt, CmdStr]);
 fmt_error({expected_arg, From}) ->
     io_lib:format("expected argument to ~s", [fmt_from(From)]);
-fmt_error({missing_args, {arg, _, _} = From, _NArgs}) ->
+fmt_error({missing_args, {arg, _, _, _} = From, _NArgs}) ->
     io_lib:format("expected ~s", [fmt_from(From)]);
 fmt_error({missing_args, From, _NArgs}) ->
     io_lib:format("expected argument to ~s", [fmt_from(From)]);
@@ -1630,8 +1633,8 @@ fmt_from({opt, short, #{short := Ch}}) ->
     ["option -", Ch];
 fmt_from({opt, long, #{long := Str}}) ->
     ["option --", Str];
-fmt_from({arg, A, CmdStr}) ->
-    ["argument ", A, " to command ", CmdStr].
+fmt_from({arg, MetaVar, CmdStr, _}) ->
+    ["argument ", MetaVar, " to command ", CmdStr].
 
 
 %%% Completion
@@ -1648,15 +1651,46 @@ get_comp_word(Env) ->
     case Env of
         {_, #{'_comp_word' := CompWord}} ->
             CompWord;
-        _ ->
+         _ ->
             false
     end.
 
+return_completion(Res, ParseOpts) ->
+    case Res of
+        {ok, ParseRes} ->
+            print_suggestions(ParseRes),
+            halt(0);
+        {error, {missing_args, {opt, _, #{type := Type}}, _}} ->
+            print_type_suggestions(Type, ParseOpts),
+            halt(0);
+        {error, {missing_args, {arg, _, _, #{type := Type}}, _}} ->
+            print_type_suggestions(Type, ParseOpts),
+            halt(0);
+        _  ->
+            halt(1)
+    end.
+
+print_type_suggestions(Type, ParseOpts) ->
+    case Type of
+        dir ->
+            io:put_chars("__DIR__\n");
+        file ->
+            io:put_chars("__FILE__\n");
+        {enum, Enums} ->
+            do_print_suggestions([?a2l(E) || E <- Enums], ParseOpts);
+        _ ->
+            ok
+    end.
+
 print_suggestions({{Cmd, ParseOpts}, _CmdStack, ResultOpts, _ResultArgs}) ->
-    #{'_comp_word' := CompWord} = ParseOpts,
     AllSuggestions =
         lists:sort(suggested_subcommands(maps:get(cmds, Cmd, []))) ++
         lists:sort(suggested_options(maps:get(opts, Cmd, []), ResultOpts)),
+    do_print_suggestions(AllSuggestions, ParseOpts).
+
+
+do_print_suggestions(AllSuggestions, ParseOpts) ->
+    #{'_comp_word' := CompWord} = ParseOpts,
     Suggestions =
         if CompWord == undefined ->
                 %% this means that the user hit <tab> after a space
@@ -1670,14 +1704,6 @@ print_suggestions({{Cmd, ParseOpts}, _CmdStack, ResultOpts, _ResultArgs}) ->
       fun(S) ->
               io:put_chars([S, "\n"])
       end, Suggestions).
-
-print_special_suggestion(Type) ->
-    case Type of
-        dir ->
-            io:put_chars("__DIR__\n");
-        file ->
-            io:put_chars("__FILE__\n")
-    end.
 
 suggested_options([#{multiple := true} = Opt | T], ResultOpts) ->
     suggest_opt(Opt, T, ResultOpts);

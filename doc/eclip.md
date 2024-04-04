@@ -428,6 +428,12 @@ If any option's callback throws `{done, term()}`, this is returned.
 Otherwise, parsing succeeds and no callback was invoked, the
 `parse` function returns `{ok, parse_result()}`.
 
+### <a name="func_fmt_error">fmt_error/1</a>
+
+<pre><code>-spec fmt_error({error, term()}) -> iodata().
+</code></pre>
+Formats an error returned fron `parse/2` or `parse/3`.
+
 ### <a name="func_fmt_help">fmt_help/2</a>
 
 <pre><code>-spec fmt_help(Env :: <a href="#type_parse_env">parse_env()</a>, CmdStack :: <a href="#type_cmd_stack">cmd_stack()</a>) ->

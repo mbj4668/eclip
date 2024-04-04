@@ -1,0 +1,29 @@
+[doc test completion of enums]
+
+[config shell_cmd=/bin/bash]
+[config shell_prompt_cmd=bind 'set enable-bracketed-paste off'; unset PROMPT_COMMAND; export PS1="SH-PROMPT:"]
+[config shell_prompt_regexp=^SH-PROMPT:]
+
+[shell test]
+    !source <(./mycmd8 --completion bash)
+    ?SH-PROMPT:
+    ~./mycmd8 --foo 
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ??xml   xpdf  json
+    ~json -- 
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    # since we sent "--" we should now complete the first arg
+    ?foo  bar
+    ~bar 
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    # now complete on directories
+    ?mycmd4-dir

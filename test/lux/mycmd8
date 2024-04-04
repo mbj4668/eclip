@@ -1,0 +1,13 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ../../ebin
+
+main(Args) ->
+    eclip:parse(Args, spec(), #{}).
+
+spec() ->
+    #{opts => [#{long => "foo", type => {enum, [xml,xpdf,json]}},
+               #{long => "flirp"}],
+      args => [#{name => name, type => {enum, [foo, bar]}},
+               #{name => infile, type => dir}]}.
+
