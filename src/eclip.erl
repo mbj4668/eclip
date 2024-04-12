@@ -249,7 +249,6 @@
       | fun((...) -> cmd_cb_res()).
 
 %% The return value of a callback defined in `cmd`.
-%%
 -type cmd_cb_res() ::
         Res :: term()
       | {error, ErrMsg :: string(), Error :: term()}.
@@ -466,14 +465,12 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
     try
         Cmd3 = prepare_main_cmd(Cmd2),
         {IsCompletion, CmdLine, ParseOpts} =
-            case os:getenv("COMP_LAST_WORD") of
+            case os:getenv("COMP_CWORD") of
                 false ->
                     {false, CmdLine0, ParseOpts0};
-                "" ->
-                    CmdLine1 = tl(CmdLine0),
-                    {true, CmdLine1, ParseOpts0#{'_comp_word' => undefined}};
-                CompWord ->
-                    CmdLine1 = lists:reverse(tl(lists:reverse(tl(CmdLine0)))),
+                CompCWord ->
+                    {CompWord, CmdLine1} =
+                        prune_cmdline(CmdLine0, list_to_integer(CompCWord)),
                     {true, CmdLine1, ParseOpts0#{'_comp_word' => CompWord}}
             end,
         case parse_cmd(CmdLine, Cmd3, ParseOpts, []) of
@@ -504,6 +501,18 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
         throw:{done, _} = Done ->
             Done
     end.
+
+%% Remove cmd, and then find the word that we complete on; drop everything
+%% after the word we complete on (e.g., "cmd --foo<TAB> --bar").
+prune_cmdline([_Cmd | CmdLine], CompCWord) ->
+    prune_cmdline(CmdLine, CompCWord, []).
+
+prune_cmdline([H | _], 1, Acc) ->
+    {H, lists:reverse(Acc)};
+prune_cmdline([H | T], N, Acc) when N > 1 ->
+    prune_cmdline(T, N-1, [H | Acc]);
+prune_cmdline([], _, Acc) ->
+    {undefined, lists:reverse(Acc)}.
 
 parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
     Cmd1 =
@@ -1095,14 +1104,18 @@ handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env, CmdStack) ->
 ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env, CmdStack) ->
     IsCompletion = is_completion(Env),
     OptsAcc1 = OptsAcc0#{Name => NewVal},
-    OptsAcc2 =
-        case Opt of
-            #{cb := Cb} when not IsCompletion ->
-                Cb(Env, OptsAcc1, CmdStack);
-            _ ->
-                OptsAcc1
-        end,
-    {ok, CmdLine, OptsAcc2}.
+    case Opt of
+        #{cb := Cb} when not IsCompletion ->
+            case Cb(Env, OptsAcc1, CmdStack) of
+                OptsAcc2 when is_map(OptsAcc2) ->
+                    {ok, CmdLine, OptsAcc1};
+                {error, ErrMsg, Reason} ->
+                    {error, {cb_error, ErrMsg, Reason}}
+            end;
+        _ ->
+            {ok, CmdLine, OptsAcc1}
+    end.
+
 
 
 parse_args(ArgSpecs, CmdLine, StopOnOpt, OptsDone, From, Env) ->
@@ -1126,13 +1139,13 @@ parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, OptsDone,
                                 {opt, _, _} -> true;
                                 _ -> false
                             end,
-                    Compword = get_comp_word(Env),
+                    CompWord = get_comp_word(Env),
                     case is_completion(Env) of
                         true when Tag == missing_args
                                   andalso not IsOpt
                                   andalso not OptsDone
-                                  andalso (Compword == undefined
-                                           orelse hd(Compword) == $-)->
+                                  andalso (CompWord == undefined
+                                           orelse hd(CompWord) == $-)->
                             %% If we're not done w/ options and user either
                             %% hasn't written anything, or has started to write
                             %% an option, we end up here and will suggest
@@ -1266,7 +1279,6 @@ to_float(Str) ->
         _:_ ->
             list_to_float(Str)
     end.
-
 
 chk_ranges([Val | _], Val) ->
     ok;
@@ -1745,8 +1757,7 @@ suggested_subcommands([]) ->
 print_completion_script(Cmd, bash) ->
     AbsName = filename:absname(hd(init:get_plain_arguments())),
     io:format("_~s() {\n"
-              "  COMPREPLY=($(COMP_LAST_WORD=${COMP_WORDS[COMP_CWORD]} "
-              "~s ${COMP_WORDS[@]}))\n"
+              "  COMPREPLY=($(COMP_CWORD=${COMP_CWORD} ~s ${COMP_WORDS[@]}))\n"
               "  if [ \"${COMPREPLY[0]}\" == \"__DIR__\" ]; then\n"
               "    compopt -o dirnames\n"
               "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
@@ -1762,7 +1773,7 @@ print_completion_script(Cmd, bash) ->
 print_completion_script(Cmd, zsh) ->
     AbsName = filename:absname(hd(init:get_plain_arguments())),
     io:format("_~s() {\n"
-              "  sugg=(\"${(@f)$(COMP_LAST_WORD=${words[-1]} ~s $words)}\")\n"
+              "  sugg=(\"${(@f)$(COMP_CWORD=$((${CURRENT}-1)) ~s $words)}\")\n"
               "  if [ \"${sugg[1]}\" = \"__DIR__\" ]; then\n"
               "    _path_files -/\n"
               "  elif [ \"${sugg[1]}\" = \"__FILE__\" ]; then\n"
