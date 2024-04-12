@@ -247,7 +247,6 @@ are `undefined` if not given or have defaults.
 ### <a name="type_cmd_cb_res">cmd_cb_res()</a>
 
 The return value of a callback defined in `cmd`.
-
 <pre><code>-type <a href="#type_cmd_cb_res">cmd_cb_res()</a> ::
         Res :: term()
       | {error, ErrMsg :: string(), Error :: term()}.

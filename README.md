@@ -96,8 +96,8 @@ $ hello --name
 
 # Command line syntax
 
-Three ways of describing the command line syntax supported by the
-parser:
+Below are three ways of describing the command line syntax supported
+by the parser:
 
 ### Plain text
 
@@ -302,7 +302,7 @@ parse(["foo.txt", "bar.txt"],
 > {ok, {_Env, [], #{}, #{filename => ["foo.txt","bar.txt"]}}}
 ```
 
-### Callbacks
+### Command callbacks
 
 The parser can either return the parse result, or automatically invoke
 a callback associated with the selected command.  This is especially
@@ -324,12 +324,12 @@ parse(["-v", "list", "--foo", "bar.txt"],
                    cb => fun do_list/5}]}).
 
 do_list(_Env, CmdStack, Foo, Bar, Filename) ->
-    io:format("Stack = ~p\nFoo = ~p\nBar = ~p\nFilename = ~s\n",
+    io:format("CmdStack = ~p\nFoo = ~p\nBar = ~p\nFilename = ~s\n",
               [CmdStack, Foo, Bar, Filename]).
 
 % results in:
 
-CmdStack = [{mycmd, #{verbosity => 1}}]
+CmdStack = [#{name => mycmd, ...}], #{verbosity => 1}}]
 Foo = true
 Bar = false
 Filename = "bar.txt"
@@ -340,7 +340,7 @@ as:
 
 ```erlang
 do_list({Env,
-         [{mycmd,#{verbose => 1}}],
+         [#{name => mycmd, ...}], #{verbose => 1}}],
          #{bar => false,foo => true},
          #{filename => "bar.txt"}}).
 ```
@@ -523,6 +523,8 @@ Options:
 
 # Changes in 2.0.0
 
+- Rewrote the completion code to work with completion in the middle
+  of the command line, and better completion for enumerations.
 - The type `result_cmd_stack()` is renamed to `cmd_stack()`, and
   the first element is a `cmd()` instead of the command's `name`.
 - The option callback function (type `opt_cb()`) now takes a third
