@@ -289,6 +289,30 @@ parse(["--user", "joe", "42"],
 > {ok, {_Env, [], #{user => #{id => 42, name => "joe"}}, #{}}
 ```
 
+### Option validation
+
+An option can define a callback which can be used to validate the
+given option value, and optionally modify it.
+
+```erlang
+%% mycmd --address 10.0.0.1
+parse(["--address", "10.0.0.1"],
+      #{cmd => "mycmd",
+        opts => [#{long => "address",
+                   cb => fun opt_address/3}]}).
+
+opt_address(_, #{address := Address0} = Opts, _) ->
+    case inet:parse_address(Address0) of
+        {ok, Address} ->
+            Opts#{address => Address};
+        _ ->
+            {error, "Not an ipv4 address", error}
+    end.
+
+> {ok, {_Env, [], #{address => {10,0,0,1}, #{}}
+```
+
+
 ### Command with variable number of arguments
 
 The command should take a possibly empty list of files as arguments.
@@ -521,7 +545,16 @@ Options:
   -h, --help                 Show this help and exit
 ```
 
-# Changes in 2.0.0
+# Changelog
+
+## Changes in 2.0.1
+
+- Ensure file and directory completion in bash return sorted
+  suggetions.
+- Fixed bug where the return value from an option callback was
+  ignored.
+
+## Changes in 2.0.0
 
 - Rewrote the completion code to work with completion in the middle
   of the command line, and better completion for enumerations.

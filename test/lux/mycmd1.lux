@@ -6,6 +6,7 @@ Usage: mycmd1 [OPTIONS]
 Options:
   -h, --help                 Show this help and exit
   -i   I                     An integer
+      --address ADDRESS      An IPv4 address
 
 Other options:
   -x   ID                    Use ID
@@ -31,6 +32,7 @@ Usage: mycmd1 [<options>]
 Options:
   -h, --help                 Show this help and exit
   -i   <i>                   An integer
+      --address <address>    An IPv4 address
 
 Other options:
   -x   ID                    Use ID
@@ -90,4 +92,8 @@ SH-PROMPT
 
     !./mycmd1 -i foo
     ?Error: bad value "foo" for option -i
+    ?SH-PROMPT
+
+    !./mycmd1 --address 10.0.0.1
+    ?address :: {10,0,0,1}
     ?SH-PROMPT

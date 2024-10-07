@@ -153,6 +153,20 @@ Used solely to group related options in the help text.
         {group, Header :: string(), [<a href="#type_opt">opt()</a>]}.
 </code></pre>
 
+### <a name="type_opt_cb">opt_cb()</a>
+
+A callback function in an `opt`.  It is invoked if the option is
+given on the command line.
+
+The callback is called with the options gathered so far, and it
+must either return new options (possibly modified), or stop
+parsing by throwing `{done, term()}`.  This is useful
+e.g., to implement `--version` or `--help`.  An option that
+throws '{done, term()}' is called an eager option.
+<pre><code>-type <a href="#type_opt_cb">opt_cb()</a> :: fun((<a href="#type_parse_env">parse_env()</a>, <a href="#type_result_opts">result_opts()</a>, <a href="#type_cmd_stack">cmd_stack()</a>) ->
+                             <a href="#type_result_opts">result_opts()</a>).
+</code></pre>
+
 ### <a name="type_arg">arg()</a>
 
 Specifies a positional argument to a command or option.

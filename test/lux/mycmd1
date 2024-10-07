@@ -20,6 +20,9 @@ spec() ->
     #{opts => [#{short => $i,
                  type => {int, [2, {4, 6}]},
                  help => "An integer"},
+               #{long => "address",
+                 help => "An IPv4 address",
+                 cb => fun opt_ipv4_address/3},
                {group, "Other options",
                 [
                  #{short => $x, metavar => "ID", help => "Use ID"},
@@ -34,6 +37,14 @@ spec() ->
    appearing only if certain conditions are met.
 "}],
       cb => fun maincmd/1}.
+
+opt_ipv4_address(_, #{address := Address0} = Opts, _) ->
+    case inet:parse_address(Address0) of
+        {ok, Address} ->
+            Opts#{address => Address};
+        _ ->
+            {error, "Not an ipv4 address", error}
+    end.
 
 maincmd(X) ->
     io:format("~p\n", [X]),

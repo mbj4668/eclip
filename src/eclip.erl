@@ -11,7 +11,7 @@
          default_completion_opt/0]).
 
 -export_type([cmd/0, cmdgroup/0,
-              opt/0, optgroup/0,
+              opt/0, optgroup/0, opt_cb/0,
               arg/0, argtype/0, range/1,
 
               cmd_cb/0, cmd_cb_res/0,
@@ -1108,7 +1108,7 @@ ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env, CmdStack) ->
         #{cb := Cb} when not IsCompletion ->
             case Cb(Env, OptsAcc1, CmdStack) of
                 OptsAcc2 when is_map(OptsAcc2) ->
-                    {ok, CmdLine, OptsAcc1};
+                    {ok, CmdLine, OptsAcc2};
                 {error, ErrMsg, Reason} ->
                     {error, {cb_error, ErrMsg, Reason}}
             end;
@@ -1759,10 +1759,10 @@ print_completion_script(Cmd, bash) ->
     io:format("_~s() {\n"
               "  COMPREPLY=($(COMP_CWORD=${COMP_CWORD} ~s ${COMP_WORDS[@]}))\n"
               "  if [ \"${COMPREPLY[0]}\" == \"__DIR__\" ]; then\n"
-              "    compopt -o dirnames\n"
+              "    compopt +o nosort -o dirnames\n"
               "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
               "  elif [ \"${COMPREPLY[0]}\" == \"__FILE__\" ]; then\n"
-              "    compopt -o default\n"
+              "    compopt +o nosort -o default\n"
               "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
               "  fi\n"
               "  return 0\n"
@@ -1793,11 +1793,19 @@ print_completion_script(_, _) ->
 try_detect_shell() ->
     case os:getenv("SHELL") of
         false ->
-            unknown;
+            try_detect_shell2();
         SHELL ->
             case filename:basename(SHELL) of
                 "bash" -> bash;
                 "zsh" -> zsh;
-                _ -> unknown
+                _ -> try_detect_shell2()
             end
+    end.
+
+try_detect_shell2() ->
+    case os:getenv("BASH_VERSION") of
+        false ->
+            unknown;
+        _ ->
+            bash
     end.
