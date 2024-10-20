@@ -12,8 +12,29 @@
     ~${_TAB_}
     [sleep 1]
     ~${_TAB_}
-    ?--completion  --help        -h            -i
-    !
+    ?--completion  --help        -h            -s            -x
+    ?SH-PROMPT
+
+[shell test-spaces1]
+    !source <(./mycmd2 --completion bash)
+    ?SH-PROMPT
+    ~./mycmd2 -s "foo bar" -
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?--completion  --help        -h            -x
+    ?SH-PROMPT
+
+[shell test-spaces2]
+    !source <(./mycmd2 --completion bash)
+    ?SH-PROMPT
+    ~./mycmd2 -s 'foo bar' -
+    [sleep 1]
+    ~${_TAB_}
+    [sleep 1]
+    ~${_TAB_}
+    ?--completion  --help        -h            -x
     ?SH-PROMPT
 
 [shell test-errors]
@@ -21,8 +42,8 @@
     ?Error: unexpected argument "bar" to mycmd2
     ?SH-PROMPT
 
-    !./mycmd2 -i
-    ?Error: expected argument to option -i
+    !./mycmd2 -x
+    ?Error: expected argument to option -x
     ?SH-PROMPT
 
     !./mycmd2 43

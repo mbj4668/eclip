@@ -505,7 +505,7 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
 %% Remove cmd, and then find the word that we complete on; drop everything
 %% after the word we complete on (e.g., "cmd --foo<TAB> --bar").
 prune_cmdline([_Cmd | CmdLine], CompCWord) ->
-    prune_cmdline(CmdLine, CompCWord, []).
+    prune_cmdline(strip_cmdline(CmdLine), CompCWord, []).
 
 prune_cmdline([H | _], 1, Acc) ->
     {H, lists:reverse(Acc)};
@@ -513,6 +513,19 @@ prune_cmdline([H | T], N, Acc) when N > 1 ->
     prune_cmdline(T, N-1, [H | Acc]);
 prune_cmdline([], _, Acc) ->
     {undefined, lists:reverse(Acc)}.
+
+%% strip cmdline from double quotes, which are added by COMP_WORDS in bash
+strip_cmdline([[Q | R] = H | T]) when Q == $"; Q == $' ->
+    case lists:reverse(R) of
+        [Q | Drow] ->
+            [lists:reverse(Drow) | strip_cmdline(T)];
+        _ ->
+            [H | strip_cmdline(T)]
+    end;
+strip_cmdline([H | T]) ->
+    [H | strip_cmdline(T)];
+strip_cmdline([]) ->
+    [].
 
 parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
     Cmd1 =
@@ -1757,7 +1770,8 @@ suggested_subcommands([]) ->
 print_completion_script(Cmd, bash) ->
     AbsName = filename:absname(hd(init:get_plain_arguments())),
     io:format("_~s() {\n"
-              "  COMPREPLY=($(COMP_CWORD=${COMP_CWORD} ~s ${COMP_WORDS[@]}))\n"
+              "  COMPREPLY=($(COMP_CWORD="
+              "${COMP_CWORD} ~s \"${COMP_WORDS[@]}\"))\n"
               "  if [ \"${COMPREPLY[0]}\" == \"__DIR__\" ]; then\n"
               "    compopt +o nosort -o dirnames\n"
               "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
