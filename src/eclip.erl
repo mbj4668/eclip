@@ -123,64 +123,64 @@
 %% `name` to an `optval()`.
 %% erlfmt:ignore
 -type opt() ::
-        #{
-          %% `name` is used as as an identifier in the parse result
-          %% If no `name` is given, the default is the long option (if
-          %% given) as an atom with dashes replaced with underscores,
-          %% or otherwise the short option as an atom.
-          name => atom(),
+    #{
+      %% `name` is used as as an identifier in the parse result
+      %% If no `name` is given, the default is the long option (if
+      %% given) as an atom with dashes replaced with underscores,
+      %% or otherwise the short option as an atom.
+      name => atom(),
 
-          %% At least one of `short` and `long` must be given.
-          short => char(),
-          long => string(),
+      %% At least one of `short` and `long` must be given.
+      short => char(),
+      long => string(),
 
-          %% The string that is printed in the help text.  If set to
-          %% `hidden`, the command will not be displayed in the help
-          %% text.
-          help => string() | hidden,
+      %% The string that is printed in the help text.  If set to
+      %% `hidden`, the command will not be displayed in the help
+      %% text.
+      help => string() | hidden,
 
-          %% If `multiple` is `true`, the option can be given multiple
-          %% times, and the optval will either be a list of each
-          %% value, or - if `type` is `count` - an integer.
-          multiple => boolean(),
+      %% If `multiple` is `true`, the option can be given multiple
+      %% times, and the optval will either be a list of each
+      %% value, or - if `type` is `count` - an integer.
+      multiple => boolean(),
 
-          %% The type of a single valued option argument.
-          %% `type` and `args` are mutually exclusive.
-          type => flag       % `optval` is 'true'
-                | boolean    % --no-<long> to disable, optval is `boolean()`
-                | count      % implies `multiple`, `optval` is `integer()`
-                | argtype()  % `optval` is `argval()`
-                | arg(),     % `optval` is `argval()`
+      %% The type of a single valued option argument.
+      %% `type` and `args` are mutually exclusive.
+      type => flag       % `optval` is 'true'
+            | boolean    % --no-<long> to disable, optval is `boolean()`
+            | count      % implies `multiple`, `optval` is `integer()`
+            | argtype()  % `optval` is `argval()`
+            | arg(),     % `optval` is `argval()`
 
-          %% each arg in `args` must have an integer-valued `nargs`, or
-          %% `nargs => '?'`
-          args => [arg()],   % `optval` is `result_args()`
+      %% each arg in `args` must have an integer-valued `nargs`, or
+      %% `nargs => '?'`
+      args => [arg()],   % `optval` is `result_args()`
 
-          default => term(), % `optval` is this term if the option is not given
+      default => term(), % `optval` is this term if the option is not given
 
-          %% if `default_in_help` is `false`, the given default value is not
-          %% automatically printed in the help string
-          default_in_help => boolean(), % default is `true`
+      %% if `default_in_help` is `false`, the given default value is not
+      %% automatically printed in the help string
+      default_in_help => boolean(), % default is `true`
 
-          %% if `enum_in_help` is `false`, and `type` is an enumeration,
-          %% the enums are not automatically printed in the help string
-          enum_in_help => boolean(), % default is `true`
+      %% if `enum_in_help` is `false`, and `type` is an enumeration,
+      %% the enums are not automatically printed in the help string
+      enum_in_help => boolean(), % default is `true`
 
-          %% The name of the option in help text.
-          %% Default is `name` in uppercase or in brackets (depending
-          %% on `metavar_style` in `parse_opts()`).  Only used if `type`
-          %% is an `argtype()`.
-          metavar => string(),
+      %% The name of the option in help text.
+      %% Default is `name` in uppercase or in brackets (depending
+      %% on `metavar_style` in `parse_opts()`).  Only used if `type`
+      %% is an `argtype()`.
+      metavar => string(),
 
-          required => boolean(), % default is `false`
+      required => boolean(), % default is `false`
 
-          %% If `expose_value` is `false`, then the option is not included
-          %% in the arguments to callbacks with arity > 1.
-          expose_value => boolean(), % default is `true`
+      %% If `expose_value` is `false`, then the option is not included
+      %% in the arguments to callbacks with arity > 1.
+      expose_value => boolean(), % default is `true`
 
-          %% If the option is found, the callback is invoked.
-          cb => opt_cb()
-          }.
+      %% If the option is found, the callback is invoked.
+      cb => opt_cb()
+    }.
 %% Used to define a set of mutually exclusive options.
 %-type optchoice() ::
 %        {choice, [[opt() | optchoice()]]}.
@@ -325,10 +325,11 @@
 
 %% erlfmt:ignore
 -type optval() ::
-    'true'            % if type is 'flag'
-    | boolean()       % if type is 'boolean'
-    | argval()        % if type is an argtype()
-    | result_args().  % if args is set
+    'true'           % if type is 'flag'
+    | boolean()      % if type is 'boolean'
+    | argval()       % if type is an argtype()
+    | result_args()  % if args is set
+    .
 
 %% erlfmt:ignore
 -type argval() ::
@@ -336,7 +337,8 @@
     | atom()     % if argtype is 'enum'
     | integer()  % if argtype is 'int'
     | float()    % if argtype is 'float'
-    | term().    % if argtype is 'custom'
+    | term()     % if argtype is 'custom'
+    .
 
 -type cmd_stack() ::
     [{cmd(), Opts :: result_opts()}].
@@ -453,10 +455,7 @@ opt_completion({#{cmd := Cmd}, _}, ResultOpts, _) ->
     throw({done, ok}).
 
 %% @parse/2
--spec parse(
-    CmdLine :: [string()],
-    CmdSpec :: cmd()
-) ->
+-spec parse(CmdLine :: [string()], CmdSpec :: cmd()) ->
     {done, term()}
     | {ok, parse_result()}
     | {error, Error :: term()}
@@ -466,11 +465,7 @@ parse(CmdName, Cmd) ->
     parse(CmdName, Cmd, #{}).
 
 %% @parse/3
--spec parse(
-    CmdLine :: [string()],
-    CmdSpec :: cmd(),
-    Options :: parse_opts()
-) ->
+-spec parse(CmdLine :: [string()], CmdSpec :: cmd(), Options :: parse_opts()) ->
     {done, term()}
     | {ok, parse_result()}
     | {error, Error :: term()}

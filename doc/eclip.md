@@ -86,64 +86,64 @@ In the parse result, each given option, and all options with default
 values are collected into a map `result_opts()`, which maps the option's
 `name` to an `optval()`.
 <pre><code>-type <a href="#type_opt">opt()</a> ::
-        #{
-          <span style="color:indianred">%% `name` is used as as an identifier in the parse result</span>
-          <span style="color:indianred">%% If no `name` is given, the default is the long option (if</span>
-          <span style="color:indianred">%% given) as an atom with dashes replaced with underscores,</span>
-          <span style="color:indianred">%% or otherwise the short option as an atom.</span>
-          name => atom(),
+    #{
+      <span style="color:indianred">%% `name` is used as as an identifier in the parse result</span>
+      <span style="color:indianred">%% If no `name` is given, the default is the long option (if</span>
+      <span style="color:indianred">%% given) as an atom with dashes replaced with underscores,</span>
+      <span style="color:indianred">%% or otherwise the short option as an atom.</span>
+      name => atom(),
 
-          <span style="color:indianred">%% At least one of `short` and `long` must be given.</span>
-          short => char(),
-          long => string(),
+      <span style="color:indianred">%% At least one of `short` and `long` must be given.</span>
+      short => char(),
+      long => string(),
 
-          <span style="color:indianred">%% The string that is printed in the help text.  If set to</span>
-          <span style="color:indianred">%% `hidden`, the command will not be displayed in the help</span>
-          <span style="color:indianred">%% text.</span>
-          help => string() | hidden,
+      <span style="color:indianred">%% The string that is printed in the help text.  If set to</span>
+      <span style="color:indianred">%% `hidden`, the command will not be displayed in the help</span>
+      <span style="color:indianred">%% text.</span>
+      help => string() | hidden,
 
-          <span style="color:indianred">%% If `multiple` is `true`, the option can be given multiple</span>
-          <span style="color:indianred">%% times, and the optval will either be a list of each</span>
-          <span style="color:indianred">%% value, or - if `type` is `count` - an integer.</span>
-          multiple => boolean(),
+      <span style="color:indianred">%% If `multiple` is `true`, the option can be given multiple</span>
+      <span style="color:indianred">%% times, and the optval will either be a list of each</span>
+      <span style="color:indianred">%% value, or - if `type` is `count` - an integer.</span>
+      multiple => boolean(),
 
-          <span style="color:indianred">%% The type of a single valued option argument.</span>
-          <span style="color:indianred">%% `type` and `args` are mutually exclusive.</span>
-          type => flag       <span style="color:indianred">% `optval` is 'true'</span>
-                | boolean    <span style="color:indianred">% --no-<long> to disable, optval is `boolean()`</span>
-                | count      <span style="color:indianred">% implies `multiple`, `optval` is `integer()`</span>
-                | <a href="#type_argtype">argtype()</a>  <span style="color:indianred">% `optval` is `<a href="#type_argval">argval()</a>`</span>
-                | <a href="#type_arg">arg()</a>,     <span style="color:indianred">% `optval` is `<a href="#type_argval">argval()</a>`</span>
+      <span style="color:indianred">%% The type of a single valued option argument.</span>
+      <span style="color:indianred">%% `type` and `args` are mutually exclusive.</span>
+      type => flag       <span style="color:indianred">% `optval` is 'true'</span>
+            | boolean    <span style="color:indianred">% --no-<long> to disable, optval is `boolean()`</span>
+            | count      <span style="color:indianred">% implies `multiple`, `optval` is `integer()`</span>
+            | <a href="#type_argtype">argtype()</a>  <span style="color:indianred">% `optval` is `<a href="#type_argval">argval()</a>`</span>
+            | <a href="#type_arg">arg()</a>,     <span style="color:indianred">% `optval` is `<a href="#type_argval">argval()</a>`</span>
 
-          <span style="color:indianred">%% each arg in `args` must have an integer-valued `nargs`, or</span>
-          <span style="color:indianred">%% `nargs => '?'`</span>
-          args => [<a href="#type_arg">arg()</a>],   <span style="color:indianred">% `optval` is `<a href="#type_result_args">result_args()</a>`</span>
+      <span style="color:indianred">%% each arg in `args` must have an integer-valued `nargs`, or</span>
+      <span style="color:indianred">%% `nargs => '?'`</span>
+      args => [<a href="#type_arg">arg()</a>],   <span style="color:indianred">% `optval` is `<a href="#type_result_args">result_args()</a>`</span>
 
-          default => term(), <span style="color:indianred">% `optval` is this term if the option is not given</span>
+      default => term(), <span style="color:indianred">% `optval` is this term if the option is not given</span>
 
-          <span style="color:indianred">%% if `default_in_help` is `false`, the given default value is not</span>
-          <span style="color:indianred">%% automatically printed in the help string</span>
-          default_in_help => boolean(), <span style="color:indianred">% default is `true`</span>
+      <span style="color:indianred">%% if `default_in_help` is `false`, the given default value is not</span>
+      <span style="color:indianred">%% automatically printed in the help string</span>
+      default_in_help => boolean(), <span style="color:indianred">% default is `true`</span>
 
-          <span style="color:indianred">%% if `enum_in_help` is `false`, and `type` is an enumeration,</span>
-          <span style="color:indianred">%% the enums are not automatically printed in the help string</span>
-          enum_in_help => boolean(), <span style="color:indianred">% default is `true`</span>
+      <span style="color:indianred">%% if `enum_in_help` is `false`, and `type` is an enumeration,</span>
+      <span style="color:indianred">%% the enums are not automatically printed in the help string</span>
+      enum_in_help => boolean(), <span style="color:indianred">% default is `true`</span>
 
-          <span style="color:indianred">%% The name of the option in help text.</span>
-          <span style="color:indianred">%% Default is `name` in uppercase or in brackets (depending</span>
-          <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts()</a>`).  Only used if `type`</span>
-          <span style="color:indianred">%% is an `<a href="#type_argtype">argtype()</a>`.</span>
-          metavar => string(),
+      <span style="color:indianred">%% The name of the option in help text.</span>
+      <span style="color:indianred">%% Default is `name` in uppercase or in brackets (depending</span>
+      <span style="color:indianred">%% on `metavar_style` in `<a href="#type_parse_opts">parse_opts()</a>`).  Only used if `type`</span>
+      <span style="color:indianred">%% is an `<a href="#type_argtype">argtype()</a>`.</span>
+      metavar => string(),
 
-          required => boolean(), <span style="color:indianred">% default is `false`</span>
+      required => boolean(), <span style="color:indianred">% default is `false`</span>
 
-          <span style="color:indianred">%% If `expose_value` is `false`, then the option is not included</span>
-          <span style="color:indianred">%% in the arguments to callbacks with arity > 1.</span>
-          expose_value => boolean(), <span style="color:indianred">% default is `true`</span>
+      <span style="color:indianred">%% If `expose_value` is `false`, then the option is not included</span>
+      <span style="color:indianred">%% in the arguments to callbacks with arity > 1.</span>
+      expose_value => boolean(), <span style="color:indianred">% default is `true`</span>
 
-          <span style="color:indianred">%% If the option is found, the callback is invoked.</span>
-          cb => <a href="#type_opt_cb">opt_cb()</a>
-          }.
+      <span style="color:indianred">%% If the option is found, the callback is invoked.</span>
+      cb => <a href="#type_opt_cb">opt_cb()</a>
+    }.
 </code></pre>
 
 ### <a name="type_optgroup">optgroup()</a>
@@ -262,8 +262,7 @@ are `undefined` if not given or have defaults.
 
 The return value of a callback defined in `cmd`.
 <pre><code>-type <a href="#type_cmd_cb_res">cmd_cb_res()</a> ::
-    Res ::
-    term()
+    Res :: term()
     | {error, ErrMsg :: string(), Error :: term()}.
 </code></pre>
 
@@ -318,20 +317,11 @@ The return value of a callback defined in `cmd`.
 ### <a name="type_optval">optval()</a>
 
 <pre><code>-type <a href="#type_optval">optval()</a> ::
-    'true'            <span style="color:indianred">% if type is 'flag'</span>
-    | boolean()       <span style="color:indianred">% if type is 'boolean'</span>
-    | <a href="#type_argval">argval()</a>        <span style="color:indianred">% if type is an <a href="#type_argtype">argtype()</a></span>
-    | <a href="#type_result_args">result_args()</a>.  <span style="color:indianred">% if args is set</span>
-
--type <a href="#type_argval">argval()</a> ::
-    string()     <span style="color:indianred">% if argtype is 'string', 'dir' or 'file'</span>
-    | atom()     <span style="color:indianred">% if argtype is 'enum'</span>
-    | integer()  <span style="color:indianred">% if argtype is 'int'</span>
-    | float()    <span style="color:indianred">% if argtype is 'float'</span>
-    | term().    <span style="color:indianred">% if argtype is 'custom'</span>
-
--type <a href="#type_cmd_stack">cmd_stack()</a> ::
-    [{<a href="#type_cmd">cmd()</a>, Opts :: <a href="#type_result_opts">result_opts()</a>}].
+    'true'           <span style="color:indianred">% if type is 'flag'</span>
+    | boolean()      <span style="color:indianred">% if type is 'boolean'</span>
+    | <a href="#type_argval">argval()</a>       <span style="color:indianred">% if type is an <a href="#type_argtype">argtype()</a></span>
+    | <a href="#type_result_args">result_args()</a>  <span style="color:indianred">% if args is set</span>
+    .
 </code></pre>
 
 ### <a name="type_argval">argval()</a>
@@ -341,10 +331,8 @@ The return value of a callback defined in `cmd`.
     | atom()     <span style="color:indianred">% if argtype is 'enum'</span>
     | integer()  <span style="color:indianred">% if argtype is 'int'</span>
     | float()    <span style="color:indianred">% if argtype is 'float'</span>
-    | term().    <span style="color:indianred">% if argtype is 'custom'</span>
-
--type <a href="#type_cmd_stack">cmd_stack()</a> ::
-    [{<a href="#type_cmd">cmd()</a>, Opts :: <a href="#type_result_opts">result_opts()</a>}].
+    | term()     <span style="color:indianred">% if argtype is 'custom'</span>
+    .
 </code></pre>
 
 ### <a name="type_parse_opts">parse_opts()</a>
@@ -425,10 +413,7 @@ A pre-formatted string.
 ## Functions
 ### <a name="func_parse">parse/2</a>
 
-<pre><code>-spec parse(
-    CmdLine :: [string()],
-    CmdSpec :: <a href="#type_cmd">cmd()</a>
-) ->
+<pre><code>-spec parse(CmdLine :: [string()], CmdSpec :: <a href="#type_cmd">cmd()</a>) ->
     {done, term()}
     | {ok, <a href="#type_parse_result">parse_result()</a>}
     | {error, Error :: term()}
@@ -438,11 +423,7 @@ Equivalent to `parse(CmdLine, CmdSpec, #{})`.
 
 ### <a name="func_parse">parse/3</a>
 
-<pre><code>-spec parse(
-    CmdLine :: [string()],
-    CmdSpec :: <a href="#type_cmd">cmd()</a>,
-    Options :: <a href="#type_parse_opts">parse_opts()</a>
-) ->
+<pre><code>-spec parse(CmdLine :: [string()], CmdSpec :: <a href="#type_cmd">cmd()</a>, Options :: <a href="#type_parse_opts">parse_opts()</a>) ->
     {done, term()}
     | {ok, <a href="#type_parse_result">parse_result()</a>}
     | {error, Error :: term()}
