@@ -6,22 +6,40 @@
 -export([fmt_error/1]).
 -export([fmt_help/2, fmt_help/3, print_help/2, print_help/3]).
 
--export([default_help_opt/0,
-         default_version_opt/0,
-         default_completion_opt/0]).
+-export([
+    default_help_opt/0,
+    default_version_opt/0,
+    default_completion_opt/0
+]).
 
--export_type([cmd/0, cmdgroup/0,
-              opt/0, optgroup/0, opt_cb/0,
-              arg/0, argtype/0, range/1,
+-export_type([
+    cmd/0,
+    cmdgroup/0,
+    opt/0,
+    optgroup/0,
+    opt_cb/0,
+    arg/0,
+    argtype/0,
+    range/1,
 
-              cmd_cb/0, cmd_cb_res/0,
+    cmd_cb/0,
+    cmd_cb_res/0,
 
-              parse_result/0,
-              result_opts/0, result_args/0, cmd_stack/0,
-              optval/0, argval/0,
-              parse_opts/0, parse_env/0,
+    parse_result/0,
+    result_opts/0,
+    result_args/0,
+    cmd_stack/0,
+    optval/0,
+    argval/0,
+    parse_opts/0,
+    parse_env/0,
 
-              doc/0, p/0, ul/0, dl/0, pre/0]).
+    doc/0,
+    p/0,
+    ul/0,
+    dl/0,
+    pre/0
+]).
 
 -define(iof, io:format).
 -define(a2l, atom_to_list).
@@ -32,47 +50,47 @@
 
 %% Specifies the main command and subcommands.
 -type cmd() ::
-        #{
-          %% `name` is used as an identifier in the parse result.
-          %% If no `name` is given, the default is the `cmd` as an atom,
-          %% with dashes replaced with underscores.
-          name => atom(),
+    #{
+        %% `name` is used as an identifier in the parse result.
+        %% If no `name` is given, the default is the `cmd` as an atom,
+        %% with dashes replaced with underscores.
+        name => atom(),
 
-          %% `cmd` is the string that the user uses to invoke the
-          %% command.  It is required for subcommands.  The default
-          %% for the main command is the program name ("argv[0]").
-          cmd => string(),
+        %% `cmd` is the string that the user uses to invoke the
+        %% command.  It is required for subcommands.  The default
+        %% for the main command is the program name ("argv[0]").
+        cmd => string(),
 
-          %% `opts` specifies the options to the command.
-          opts => [opt() | optgroup()],
+        %% `opts` specifies the options to the command.
+        opts => [opt() | optgroup()],
 
-          %% `args` specifies the positional arguments to the command.
-          %% `args` and `cmds` are mutually exclusive.
-          args => [arg()],
+        %% `args` specifies the positional arguments to the command.
+        %% `args` and `cmds` are mutually exclusive.
+        args => [arg()],
 
-          %% `cmds` specifies the subcommands to the command.
-          cmds => [cmd() | cmdgroup()],
+        %% `cmds` specifies the subcommands to the command.
+        cmds => [cmd() | cmdgroup()],
 
-          %% `require_cmd` can only be set if `cmds` is set.  It means that
-          %% the user must give a subcommand (or an eager option).
-          require_cmd => boolean(),
+        %% `require_cmd` can only be set if `cmds` is set.  It means that
+        %% the user must give a subcommand (or an eager option).
+        require_cmd => boolean(),
 
-          %% The string that is printed in the help text.  If set to
-          %% `hidden`, the command will not be displayed in the help
-          %% text.  Use two consecutive newlines to break the text
-          %% into paragraphs. For more complex help formatting, use `doc()`.
-          help => string() | doc() | hidden,
+        %% The string that is printed in the help text.  If set to
+        %% `hidden`, the command will not be displayed in the help
+        %% text.  Use two consecutive newlines to break the text
+        %% into paragraphs. For more complex help formatting, use `doc()`.
+        help => string() | doc() | hidden,
 
-          %% The string that is printed in the listing of subcommands.
-          %% Default is the first sentence of `help`.
-          short_help => string(),
+        %% The string that is printed in the listing of subcommands.
+        %% Default is the first sentence of `help`.
+        short_help => string(),
 
-          %% Optional callback that implements the command or subcommand.
-          cb => cmd_cb()
-         }.
+        %% Optional callback that implements the command or subcommand.
+        cb => cmd_cb()
+    }.
 %% Used solely to group related commands in the help text.
 -type cmdgroup() ::
-        {group, Header :: string(), [cmd()]}.
+    {group, Header :: string(), [cmd()]}.
 
 %% Specifies an option to a command.
 %%
@@ -103,6 +121,7 @@
 %% In the parse result, each given option, and all options with default
 %% values are collected into a map `result_opts()`, which maps the option's
 %% `name` to an `optval()`.
+%% erlfmt:ignore
 -type opt() ::
         #{
           %% `name` is used as as an identifier in the parse result
@@ -127,17 +146,17 @@
 
           %% The type of a single valued option argument.
           %% `type` and `args` are mutually exclusive.
-          type => flag       % optval is 'true'
-                | boolean    % --no-<long> to disable, optval is boolean()
-                | count      % implies `multiple`, optval is integer()
-                | argtype()  % optval is argval()
-                | arg(),     % optval is argval()
+          type => flag       % `optval` is 'true'
+                | boolean    % --no-<long> to disable, optval is `boolean()`
+                | count      % implies `multiple`, `optval` is `integer()`
+                | argtype()  % `optval` is `argval()`
+                | arg(),     % `optval` is `argval()`
 
           %% each arg in `args` must have an integer-valued `nargs`, or
           %% `nargs => '?'`
-          args => [arg()],   % optval is result_args()
+          args => [arg()],   % `optval` is `result_args()`
 
-          default => term(), % optval is this term if the option is not given
+          default => term(), % `optval` is this term if the option is not given
 
           %% if `default_in_help` is `false`, the given default value is not
           %% automatically printed in the help string
@@ -149,8 +168,8 @@
 
           %% The name of the option in help text.
           %% Default is `name` in uppercase or in brackets (depending
-          %% on `metavar_style` in `parse_opts()).  Only used if `type`
-          %% is an argtype().
+          %% on `metavar_style` in `parse_opts()`).  Only used if `type`
+          %% is an `argtype()`.
           metavar => string(),
 
           required => boolean(), % default is `false`
@@ -167,7 +186,7 @@
 %        {choice, [[opt() | optchoice()]]}.
 %% Used solely to group related options in the help text.
 -type optgroup() ::
-        {group, Header :: string(), [opt()]}.
+    {group, Header :: string(), [opt()]}.
 
 %% Specifies a positional argument to a command or option.
 %%
@@ -178,58 +197,59 @@
 %% default values are collected into a map `result_args()`, which maps
 %% the argument's `name` to an `argval()`.
 -type arg() ::
-        #{
-          %% `name` is used as as an identifier in the parse result.
-          name := atom(),
+    #{
+        %% `name` is used as as an identifier in the parse result.
+        name := atom(),
 
-          %% Default is `name` in uppercase or in brackets (depending
-          %% on `metavar_style` in `parse_opts()).
-          metavar => string(),
+        %% Default is `name` in uppercase or in brackets (depending
+        %% on `metavar_style` in `parse_opts()).
+        metavar => string(),
 
-          type => argtype(),
+        type => argtype(),
 
-          %% `nargs` specifies how many arguments can be given.
-          %%   '?' means zero or one
-          %%   '*' means zero or more
-          %%   '+' means one or more
-          %%    N  means exactly N
-          %% only the last arg can have nargs '*' or '+'.
-          %% if one arg has nargs '?', the following args must also have
-          %% nargs '?'.
-          %% default is 1
-          nargs => pos_integer() | '?' | '*' | '+',
+        %% `nargs` specifies how many arguments can be given.
+        %%   '?' means zero or one
+        %%   '*' means zero or more
+        %%   '+' means one or more
+        %%    N  means exactly N
+        %% only the last arg can have nargs '*' or '+'.
+        %% if one arg has nargs '?', the following args must also have
+        %% nargs '?'.
+        %% default is 1
+        nargs => pos_integer() | '?' | '*' | '+',
 
-          default => term() % argval is this term if the argument is not given
-         }.
+        %% `argval` is this term if the argument is not given
+        default => term()
+    }.
 
 %% Specifies the type of an `arg()`.
 -type argtype() ::
-        %% A string that represents a directory (helps completion)
-        dir
-        %% A string that represents a filename (helps completion)
-      | file
-        %% Any string
-      | string
-        %% A string that matches all of the given regexps
-      | {string, [Regexp :: string()]}
-        %% One of the given strings
-      | {enum, [atom()]}
-        %% any float
-      | float
-        %% A float that falls into one of the given ranges
-      | {float, [range(float())]}
-        %% Any integer
-      | int
-        %% An integer that falls into one of the given ranges
-      | {int, [range(integer())]}
-        %% Any term
-      | {custom, fun((string()) -> {ok, term()} | error)}
-      .
+    %% A string that represents a directory (helps completion)
+    dir
+    %% A string that represents a filename (helps completion)
+    | file
+    %% Any string
+    | string
+    %% A string that matches all of the given regexps
+    | {string, [Regexp :: string()]}
+    %% One of the given strings
+    | {enum, [atom()]}
+    %% any float
+    | float
+    %% A float that falls into one of the given ranges
+    | {float, [range(float())]}
+    %% Any integer
+    | int
+    %% An integer that falls into one of the given ranges
+    | {int, [range(integer())]}
+    %% Any term
+    | {custom, fun((string()) -> {ok, term()} | error)}.
 
 %% Specifies a closed range, i.e., `Min` and `Max` are valid
 %% values (when they are numbers).
--type range(T) :: T | {Min :: T | 'unbounded',
-                       Max :: T | 'unbounded'}.
+-type range(T) ::
+    T
+    | {Min :: T | 'unbounded', Max :: T | 'unbounded'}.
 
 %% A callback function in a `cmd`.  It is invoked when a command or
 %% subcommand is selected by the user.
@@ -245,14 +265,14 @@
 %% - Then follows each option value, and then each argument value; these
 %%   are `undefined` if not given or have defaults.
 -type cmd_cb() ::
-        fun((parse_result()) -> cmd_cb_res())
-      | fun((...) -> cmd_cb_res()).
+    fun((parse_result()) -> cmd_cb_res())
+    | fun((...) -> cmd_cb_res()).
 
 %% The return value of a callback defined in `cmd`.
+%% erlfmt:ignore
 -type cmd_cb_res() ::
-        Res :: term()
-      | {error, ErrMsg :: string(), Error :: term()}.
-
+    Res :: term()
+    | {error, ErrMsg :: string(), Error :: term()}.
 
 %% A callback function in an `opt`.  It is invoked if the option is
 %% given on the command line.
@@ -262,85 +282,97 @@
 %% parsing by throwing `{done, term()}`.  This is useful
 %% e.g., to implement `--version` or `--help`.  An option that
 %% throws '{done, term()}' is called an eager option.
--type opt_cb() :: fun((parse_env(), result_opts(), cmd_stack()) ->
-                             result_opts()).
-
+-type opt_cb() :: fun((parse_env(), result_opts(), cmd_stack()) -> result_opts()).
 
 %% The `parse_env()` contains the `cmd()` spec for the selected command
 %% or subcommand, and the `parse_opts()` given to the `parse()` call.
 -type parse_env() :: {cmd(), parse_opts()}.
 
 -type parse_result() ::
-        {%% The cmd() of the selected command or subcommand and parse_opts().
-         Env :: parse_env(),
+    %% The cmd() of the selected command or subcommand and parse_opts().
+    {
+        Env :: parse_env(),
 
-         %% If `CmdName` is a subcommand, `CmdStack` contains the
-         %% selected ancestor commands and the options given to them.
-         CmdStack :: cmd_stack(),
+        %% If `CmdName` is a subcommand, `CmdStack` contains the
+        %% selected ancestor commands and the options given to them.
+        CmdStack :: cmd_stack(),
 
-         %% The options given to `CmdName`.
-         Opts :: result_opts(),
+        %% The options given to `CmdName`.
+        Opts :: result_opts(),
 
-         %% The positional arguments given to `CmdName`.
-         Args :: result_args()}.
+        %% The positional arguments given to `CmdName`.
+        Args :: result_args()
+    }.
 
+%% erlfmt:ignore
 -type result_opts() ::
-        #{OptName :: atom() => integer()     % if type is count
-                             | optval()      % else if multiple is false
-                             | [optval()]    % else multiple is true
-         }.
+    #{
+        OptName ::
+            atom() =>
+                integer()     % if type is count
+                | optval()    % else if multiple is false
+                | [optval()]  % else multiple is true
+    }.
 
+%% erlfmt:ignore
 -type result_args() ::
-        #{ArgName :: atom() => argval()      % if nargs is '?' or 1
-                             | [argval()]    % if nargs > 1 or '*' or '+'
-         }.
+    #{
+        ArgName ::
+            atom() =>
+                argval()      % if nargs is '?' or 1
+                | [argval()]  % if nargs > 1 or '*' or '+'
+    }.
 
+%% erlfmt:ignore
 -type optval() ::
-        'true'        % if type is 'flag'
-      | boolean()     % if type is 'boolean'
-      | argval()      % if type is an argtype()
-      | result_args() % if args is set
-      .
+    'true'            % if type is 'flag'
+    | boolean()       % if type is 'boolean'
+    | argval()        % if type is an argtype()
+    | result_args().  % if args is set
 
+%% erlfmt:ignore
 -type argval() ::
-        string()   % if argtype is 'string', 'dir' or 'file'
-      | atom()     % if argtype is 'enum'
-      | integer()  % if argtype is 'int'
-      | float()    % if argtype is 'float'
-      | term()     % if argtype is 'custom'
-      .
+    string()     % if argtype is 'string', 'dir' or 'file'
+    | atom()     % if argtype is 'enum'
+    | integer()  % if argtype is 'int'
+    | float()    % if argtype is 'float'
+    | term().    % if argtype is 'custom'
 
 -type cmd_stack() ::
-        [{cmd(),
-          Opts :: result_opts()}].
-
+    [{cmd(), Opts :: result_opts()}].
 
 -type parse_opts() ::
-        #{
-          %% caps:           `name` as all-caps, with `-` replaced with `_`
-          %% angle_brackets: `name` surrounded by angle brackets
-          metavar_style => caps | angle_brackets,
+    #{
+        %% caps:           `name` as all-caps, with `-` replaced with `_`
+        %% angle_brackets: `name` surrounded by angle brackets
+        metavar_style => caps | angle_brackets,
 
-          %% If `version` is given, the option `--version` is automatically
-          %% added to the main command.
-          version => string(),
+        %% If `version` is given, the option `--version` is automatically
+        %% added to the main command.
+        version => string(),
 
-          %% If `add_help_option` is set to `true`, `-h|--help` is added to
-          %% the command and all subcommands.
-          add_help_option => boolean(), % default is 'true'
+        %% If `add_help_option` is set to `true`, `-h|--help` is added to
+        %% the command and all subcommands.
 
-          %% If `add_completion_option` is set to `true`, `--completion`
-          %% is added to the command.
-          add_completion_option => boolean, % default is 'true'
+        %% default is 'true'
+        add_help_option => boolean(),
 
-          %% If `print_usage_on_error` is set to 'true', a message will
-          %% be printed to stderr if parsing of the command line failed,
-          %% and the command will exit with code 1.
-          print_usage_on_error => boolean(), % default is 'true'
+        %% If `add_completion_option` is set to `true`, `--completion`
+        %% is added to the command.
 
-          %% A user-defined term.  Useful to pass data to callbacks.
-          user => term()
-         }.
+        %% default is 'true'
+        add_completion_option => boolean,
+
+        %% If `print_usage_on_error` is set to 'true', a message will
+        %% be printed to stderr if parsing of the command line failed,
+        %% and the command will exit with code 1.
+
+        %% default is 'true'
+        print_usage_on_error => boolean(),
+
+        %% A user-defined term.  Useful to pass data to callbacks.
+        user => term()
+    }.
 
 %% A document can be used to get more control over how a command's help
 %% text is formatted.  It can be used to print paragraphs, lists etc.
@@ -359,13 +391,18 @@
 %% A pre-formatted string.
 -type pre() :: {pre, string()}.
 
-
 -spec default_help_opt() -> opt().
 %% Returns the option spec for `-h|--help`.
 default_help_opt() ->
-    #{name => help, short => $h, long => "help", type => flag,
-      expose_value => false, cb => fun opt_help/3,
-      help => "Show this help and exit"}.
+    #{
+        name => help,
+        short => $h,
+        long => "help",
+        type => flag,
+        expose_value => false,
+        cb => fun opt_help/3,
+        help => "Show this help and exit"
+    }.
 
 -spec opt_help(parse_env(), result_opts(), cmd_stack()) -> no_return().
 opt_help(Env, _Opts, CmdStack) ->
@@ -375,9 +412,14 @@ opt_help(Env, _Opts, CmdStack) ->
 -spec default_version_opt() -> opt().
 %% Returns the option spec for `--version`.
 default_version_opt() ->
-    #{name => version, long => "version", type => flag,
-      expose_value => false, cb => fun opt_version/3,
-      help => "Print current version and exit"}.
+    #{
+        name => version,
+        long => "version",
+        type => flag,
+        expose_value => false,
+        cb => fun opt_version/3,
+        help => "Print current version and exit"
+    }.
 
 -spec opt_version(parse_env(), result_opts(), cmd_stack()) -> no_return().
 opt_version({#{name := Cmd}, #{version := Vsn}}, _, _) ->
@@ -387,12 +429,16 @@ opt_version({#{name := Cmd}, #{version := Vsn}}, _, _) ->
 -spec default_completion_opt() -> opt().
 %% Returns the option spec for `--completion`.
 default_completion_opt() ->
-    #{name => completion, long => "completion",
-      args => [#{name => shell, type => {enum, [bash, zsh]}, nargs => '?'}],
-      expose_value => false,
-      help => "Print sourceable bash/zsh completion script. "
-              "If no parameter is given, a guess will be made based on $SHELL.",
-      cb => fun opt_completion/3}.
+    #{
+        name => completion,
+        long => "completion",
+        args => [#{name => shell, type => {enum, [bash, zsh]}, nargs => '?'}],
+        expose_value => false,
+        help =>
+            "Print sourceable bash/zsh completion script. "
+            "If no parameter is given, a guess will be made based on $SHELL.",
+        cb => fun opt_completion/3
+    }.
 
 -spec opt_completion(parse_env(), result_opts(), cmd_stack()) -> no_return().
 opt_completion({#{cmd := Cmd}, _}, ResultOpts, _) ->
@@ -407,27 +453,28 @@ opt_completion({#{cmd := Cmd}, _}, ResultOpts, _) ->
     throw({done, ok}).
 
 %% @parse/2
--spec parse(CmdLine :: [string()],
-            CmdSpec :: cmd()) ->
+-spec parse(
+    CmdLine :: [string()],
+    CmdSpec :: cmd()
+) ->
     {done, term()}
-  | {ok, parse_result()}
-  | {error, Error :: term()}
-  | CbRes :: term()
-  .
+    | {ok, parse_result()}
+    | {error, Error :: term()}
+    | CbRes :: term().
 %% Equivalent to `parse(CmdLine, CmdSpec, #{})`.
 parse(CmdName, Cmd) ->
     parse(CmdName, Cmd, #{}).
 
-
 %% @parse/3
--spec parse(CmdLine :: [string()],
-            CmdSpec :: cmd(),
-            Options :: parse_opts()) ->
+-spec parse(
+    CmdLine :: [string()],
+    CmdSpec :: cmd(),
+    Options :: parse_opts()
+) ->
     {done, term()}
-  | {ok, parse_result()}
-  | {error, Error :: term()}
-  | CbRes :: term()
-  .
+    | {ok, parse_result()}
+    | {error, Error :: term()}
+    | CbRes :: term().
 %% Parse a command line of strings according to the `CmdSpec`.
 %%
 %% If there is an error in `CmdSpec`, an `error` is raised, on the
@@ -480,16 +527,20 @@ parse(CmdLine0, Cmd0, ParseOpts0) ->
                 case maps:get(print_usage_on_error, ParseOpts, true) of
                     true ->
                         io:put_chars(
-                          standard_error,
-                          ["Error: ", fmt_error(Error),
-                           ?nl, ?nl,
-                           fmt_error_usage(Cmd3, [], ParseOpts)]),
+                            standard_error,
+                            [
+                                ["Error: ", fmt_error(Error)],
+                                ?nl,
+                                ?nl,
+                                fmt_error_usage(Cmd3, [], ParseOpts)
+                            ]
+                        ),
                         halt(1);
                     false ->
                         ok
                 end,
                 case Error of
-                    {error, {cb_error, _, Reason}} -> % unwrap cb err
+                    {error, {cb_error, _, Reason}} ->
                         {error, Reason};
                     _ ->
                         Error
@@ -510,7 +561,7 @@ prune_cmdline([_Cmd | CmdLine], CompCWord) ->
 prune_cmdline([H | _], 1, Acc) ->
     {H, lists:reverse(Acc)};
 prune_cmdline([H | T], N, Acc) when N > 1 ->
-    prune_cmdline(T, N-1, [H | Acc]);
+    prune_cmdline(T, N - 1, [H | Acc]);
 prune_cmdline([], _, Acc) ->
     {undefined, lists:reverse(Acc)}.
 
@@ -538,45 +589,37 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
     Env = {Cmd1, ParseOpts},
     Cmd = flatten_cmd(Cmd1),
     CmdStr = maps:get(cmd, Cmd),
-    case
-        parse_opts(CmdLine, maps:get(opts, Cmd), CmdStr, Env, #{}, CmdStack)
-    of
+    case parse_opts(CmdLine, maps:get(opts, Cmd), CmdStr, Env, #{}, CmdStack) of
         {ok, RestCmdLine, ResultOpts0, OptsDone} ->
-            case
-                set_defaults(maps:get(opts, Cmd, []), ResultOpts0,
-                             CmdStr, Env, CmdStack)
-            of
+            case set_defaults(maps:get(opts, Cmd, []), ResultOpts0, CmdStr, Env, CmdStack) of
                 {ok, ResultOpts} ->
                     case maps:get(args, Cmd, undefined) of
                         undefined when RestCmdLine =/= [] ->
                             case maps:get('_cmdmap', Cmd, undefined) of
                                 undefined ->
-                                    {error,
-                                     {unexpected_args, CmdStr, RestCmdLine}};
+                                    {error, {unexpected_args, CmdStr, RestCmdLine}};
                                 CmdMap ->
-                                    parse_sub_cmd(RestCmdLine, CmdMap, CmdStr,
-                                                  Env,
-                                                  [{Cmd, ResultOpts} |
-                                                   CmdStack])
+                                    parse_sub_cmd(
+                                        RestCmdLine,
+                                        CmdMap,
+                                        CmdStr,
+                                        Env,
+                                        [{Cmd, ResultOpts} | CmdStack]
+                                    )
                             end;
                         undefined ->
-                            handle_parsed_cmd(Cmd, Env, ResultOpts, #{},
-                                              CmdStack);
+                            handle_parsed_cmd(Cmd, Env, ResultOpts, #{}, CmdStack);
                         Args ->
                             case
-                                parse_args(Args, RestCmdLine, false, OptsDone,
-                                           {cmd, CmdStr}, Env)
+                                parse_args(Args, RestCmdLine, false, OptsDone, {cmd, CmdStr}, Env)
                             of
                                 {ok, [], ResultArgs0} ->
+                                    CmdArgs = maps:get(args, Cmd, []),
                                     {ok, ResultArgs} =
-                                        set_defaults(maps:get(args, Cmd, []),
-                                                     ResultArgs0, CmdStr, Env,
-                                                     CmdStack),
-                                    handle_parsed_cmd(Cmd, Env, ResultOpts,
-                                                      ResultArgs, CmdStack);
+                                        set_defaults(CmdArgs, ResultArgs0, CmdStr, Env, CmdStack),
+                                    handle_parsed_cmd(Cmd, Env, ResultOpts, ResultArgs, CmdStack);
                                 {ok, RestCmdLine1, _} ->
-                                    {error,
-                                     {unexpected_args, CmdStr, RestCmdLine1}};
+                                    {error, {unexpected_args, CmdStr, RestCmdLine1}};
                                 Error ->
                                     Error
                             end
@@ -588,8 +631,7 @@ parse_cmd(CmdLine, Cmd0, ParseOpts, CmdStack) ->
             Error
     end.
 
-handle_parsed_cmd(_, {_, #{'_comp_word' := _}} = Env,
-                  ResultOpts, ResultArgs, CmdStack) ->
+handle_parsed_cmd(_, {_, #{'_comp_word' := _}} = Env, ResultOpts, ResultArgs, CmdStack) ->
     {ok, {Env, CmdStack, ResultOpts, ResultArgs}};
 handle_parsed_cmd(#{cmd := CmdStr, require_cmd := true}, _, _, _, _) ->
     {error, {expected_subcmd, CmdStr}};
@@ -601,12 +643,14 @@ handle_parsed_cmd(Cmd, Env, ResultOpts, ResultArgs, CmdStack) ->
                     {arity, 1} ->
                         Cb({Env, CmdStack, ResultOpts, ResultArgs});
                     _ ->
-                        A = [Env, CmdStack] ++
-                            [get_val(Opt, ResultOpts) ||
-                                Opt <- maps:get(opts, Cmd, []),
-                                maps:get(expose_value, Opt, true)] ++
-                            [get_val(Arg, ResultArgs) ||
-                                Arg <- maps:get(args, Cmd, [])],
+                        A =
+                            [Env, CmdStack] ++
+                                [
+                                    get_val(Opt, ResultOpts)
+                                 || Opt <- maps:get(opts, Cmd, []),
+                                    maps:get(expose_value, Opt, true)
+                                ] ++
+                                [get_val(Arg, ResultArgs) || Arg <- maps:get(args, Cmd, [])],
                         apply(Cb, A)
                 end,
             case CbRes of
@@ -627,8 +671,7 @@ set_defaults(Items, ResultMap, CmdStr, Env, CmdStack) ->
             set_defaults0(Items, ResultMap, CmdStr, Env, CmdStack)
     end.
 
-set_defaults0([#{name := Name, default := Default} = H | T], ResultMap0,
-              CmdStr, Env, CmdStack) ->
+set_defaults0([#{name := Name, default := Default} = H | T], ResultMap0, CmdStr, Env, CmdStack) ->
     case maps:is_key(Name, ResultMap0) of
         true ->
             set_defaults0(T, ResultMap0, CmdStr, Env, CmdStack);
@@ -643,8 +686,7 @@ set_defaults0([#{name := Name, default := Default} = H | T], ResultMap0,
                 end,
             set_defaults0(T, ResultMap2, CmdStr, Env, CmdStack)
     end;
-set_defaults0([#{name := Name, required := true} = H | T], ResultMap,
-              CmdStr, Env, CmdStack) ->
+set_defaults0([#{name := Name, required := true} = H | T], ResultMap, CmdStr, Env, CmdStack) ->
     case maps:is_key(Name, ResultMap) of
         true ->
             set_defaults0(T, ResultMap, CmdStr, Env, CmdStack);
@@ -666,8 +708,7 @@ set_defaults0([], ResultMap, _CmdStr, _Env, _CmdStack) ->
     {ok, ResultMap}.
 
 get_val(#{name := Name} = Item, ResultItems) ->
-    maps:get(Name, ResultItems,
-             maps:get(default, Item, undefined)).
+    maps:get(Name, ResultItems, maps:get(default, Item, undefined)).
 
 parse_sub_cmd([SubCmdStr | T], CmdMap, CmdStr, {_, ParseOpts}, CmdStack) ->
     case maps:find(SubCmdStr, CmdMap) of
@@ -746,8 +787,7 @@ prepare_opts([{group, Header, Opts} | T]) ->
 prepare_opts([Opt0 | T]) ->
     case {maps:is_key(short, Opt0), maps:is_key(long, Opt0)} of
         {false, false} ->
-            error({invalid_opt, maps:get(name, Opt0, Opt0),
-                   no_short_no_long});
+            error({invalid_opt, maps:get(name, Opt0, Opt0), no_short_no_long});
         _ ->
             ok
     end,
@@ -770,25 +810,30 @@ prepare_opts([Opt0 | T]) ->
                 validate_opt_type(Name, Type),
                 Opt1;
             #{name := Name, args := Args} ->
-                lists:foreach(fun(#{name := AName, nargs := NArgs})
-                                    when not (is_integer(NArgs)
-                                              orelse NArgs == '?') ->
-                                      error({invalid_opt, Name,
-                                             {bad_nargs, AName}});
-                                 (_) ->
-                                      ok
-                              end, Args),
+                lists:foreach(
+                    fun
+                        (#{name := AName, nargs := NArgs}) when
+                            not (is_integer(NArgs) orelse
+                                NArgs == '?')
+                        ->
+                            error({invalid_opt, Name, {bad_nargs, AName}});
+                        (_) ->
+                            ok
+                    end,
+                    Args
+                ),
                 Opt1;
             #{default := Default} ->
-                if is_integer(Default) ->
+                if
+                    is_integer(Default) ->
                         Opt1#{type => int};
-                   is_float(Default) ->
+                    is_float(Default) ->
                         Opt1#{type => float};
-                   Default == true ->
+                    Default == true ->
                         Opt1#{type => boolean};
-                   Default == false ->
+                    Default == false ->
                         Opt1#{type => boolean};
-                   true ->
+                    true ->
                         Opt1#{type => string}
                 end;
             _ ->
@@ -818,7 +863,8 @@ validate_opt_type(Name, Type) ->
                 end,
             try
                 validate_arg_type(Name, ArgType)
-            catch error:{invalid_arg, Name, Reason} ->
+            catch
+                error:{invalid_arg, Name, Reason} ->
                     error({invalid_opt, Name, Reason})
             end
     end.
@@ -834,10 +880,13 @@ validate_arg_type(Name, Type) ->
                 ok;
             {string, Regexps} ->
                 true = lists:all(
-                         fun(Re) -> case re:compile(Re) of
-                                        {ok, _} -> true
-                                    end
-                         end, Regexps);
+                    fun(Re) ->
+                        case re:compile(Re) of
+                            {ok, _} -> true
+                        end
+                    end,
+                    Regexps
+                );
             {enum, Enums} ->
                 lists:all(fun(E) -> is_atom(E) end, Enums);
             int ->
@@ -882,7 +931,6 @@ p_opt_help_enum(#{type := {enum, Enums}} = Opt) ->
 p_opt_help_enum(Opt) ->
     Opt.
 
-
 p_opt_help_default(#{default_in_help := false} = Opt) ->
     Opt;
 p_opt_help_default(#{help := HelpStr, type := boolean, long := LOpt} = Opt) ->
@@ -909,7 +957,6 @@ p_opt_help_default(#{default := Default} = Opt) ->
     Opt#{help => DefStr};
 p_opt_help_default(Opt) ->
     Opt.
-
 
 prepare_opt_default(#{default := _} = Opt) ->
     Opt;
@@ -961,15 +1008,12 @@ prepare_arg(#{name := Name} = Arg0) ->
 prepare_arg(Arg) ->
     error({invalid_arg, Arg, {missing, name}}).
 
-
 validate_nargs(Args) ->
     validate_nargs(Args, false).
 
-validate_nargs([#{name := Name, nargs := NArg}, _ | _], _)
-  when NArg =:= '*' orelse NArg =:= '+' ->
+validate_nargs([#{name := Name, nargs := NArg}, _ | _], _) when NArg =:= '*' orelse NArg =:= '+' ->
     error({invalid_arg, Name, multi_narg_not_at_end});
-validate_nargs([#{name := Name, nargs := NArg} | _], true)
-  when NArg =/= '?' ->
+validate_nargs([#{name := Name, nargs := NArg} | _], true) when NArg =/= '?' ->
     error({invalid_arg, Name, non_optional_follows_optional});
 validate_nargs([#{nargs := '?'} | T], _) ->
     validate_nargs(T, true);
@@ -992,8 +1036,7 @@ parse_opts(["--no-" ++ LOpt | T], Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
     end;
 parse_opts(["--" ++ LOpt | T], Opts, CmdStr, Env, OptsAcc, CmdStack) ->
     parse_lopt(LOpt, T, Opts, CmdStr, Env, OptsAcc, CmdStack);
-parse_opts(["-" ++ SOptL | T], Opts, CmdStr, Env, OptsAcc, CmdStack)
-  when SOptL /= [] ->
+parse_opts(["-" ++ SOptL | T], Opts, CmdStr, Env, OptsAcc, CmdStack) when SOptL /= [] ->
     parse_sopts(SOptL, T, Opts, CmdStr, Env, OptsAcc, CmdStack);
 parse_opts(RestCmdLine, _Opts, _CmdStr, _Env, OptsAcc, _CmdStack) ->
     {ok, RestCmdLine, OptsAcc, false}.
@@ -1001,8 +1044,7 @@ parse_opts(RestCmdLine, _Opts, _CmdStr, _Env, OptsAcc, _CmdStack) ->
 parse_lopt(LOpt, Args, Opts, CmdStr, Env, OptsAcc, CmdStack) ->
     case match_opt(LOpt, long, Opts, CmdStr, OptsAcc) of
         {ok, Opt} ->
-            handle_opt_and_continue(Opt, long, Args, Opts, CmdStr,
-                                    Env, OptsAcc, CmdStack);
+            handle_opt_and_continue(Opt, long, Args, Opts, CmdStr, Env, OptsAcc, CmdStack);
         Else ->
             Else
     end.
@@ -1011,20 +1053,15 @@ parse_sopts([SOpt], Args, Opts, CmdStr, Env, OptsAcc, CmdStack) ->
     %% last short option, may take an argument
     case match_opt(SOpt, short, Opts, CmdStr, OptsAcc) of
         {ok, Opt} ->
-            handle_opt_and_continue(Opt, short, Args, Opts, CmdStr,
-                                    Env, OptsAcc, CmdStack);
+            handle_opt_and_continue(Opt, short, Args, Opts, CmdStr, Env, OptsAcc, CmdStack);
         Else ->
             Else
     end;
 parse_sopts([SOpt | T], Args, Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
     %% clustered short option that must not take an argument
     case match_opt(SOpt, short, Opts, CmdStr, OptsAcc0) of
-        {ok, #{type := Type} = Opt}
-          when Type =:= count;
-               Type =:= flag;
-               Type =:= boolean ->
-            {ok, [], OptsAcc1} =
-                handle_opt(Opt, short, [], OptsAcc0, Env, CmdStack),
+        {ok, #{type := Type} = Opt} when Type =:= count; Type =:= flag; Type =:= boolean ->
+            {ok, [], OptsAcc1} = handle_opt(Opt, short, [], OptsAcc0, Env, CmdStack),
             parse_sopts(T, Args, Opts, CmdStr, Env, OptsAcc1, CmdStack);
         {ok, _} ->
             {error, {opt_needs_argument, CmdStr, [$-, SOpt]}};
@@ -1059,9 +1096,7 @@ opt_str(short, GivenOpt) ->
 opt_str(long, GivenOpt) ->
     [$-, $- | GivenOpt].
 
-
-handle_opt_and_continue(Opt, Style, Args0, Opts, CmdStr, Env,
-                        OptsAcc0, CmdStack) ->
+handle_opt_and_continue(Opt, Style, Args0, Opts, CmdStr, Env, OptsAcc0, CmdStack) ->
     case handle_opt(Opt, Style, Args0, OptsAcc0, Env, CmdStack) of
         {ok, Args1, OptsAcc1} ->
             parse_opts(Args1, Opts, CmdStr, Env, OptsAcc1, CmdStack);
@@ -1081,34 +1116,29 @@ handle_opt(#{name := Name} = Opt, Style, CmdLine0, OptsAcc, Env, CmdStack) ->
             ret_opt(Opt, CmdLine0, OptsAcc, true, Env, CmdStack);
         #{type := Type} ->
             Arg =
-                if is_map(Type) ->
+                if
+                    is_map(Type) ->
                         Type#{name => Name};
-                   true ->
+                    true ->
                         #{name => Name, type => Type, nargs => 1}
                 end,
             StopOnOpt = maps:get(nargs, Arg, 1) == '?',
-            case
-                parse_args([Arg], CmdLine0, StopOnOpt, false,
-                           {opt, Style, Opt}, Env)
-            of
+            case parse_args([Arg], CmdLine0, StopOnOpt, false, {opt, Style, Opt}, Env) of
                 {ok, CmdLine1, #{Name := ArgVal}} when not Multiple ->
                     ret_opt(Opt, CmdLine1, OptsAcc, ArgVal, Env, CmdStack);
                 {ok, CmdLine1, #{Name := ArgVal}} ->
                     ArgVals = maps:get(Name, OptsAcc, []),
-                    ret_opt(Opt, CmdLine1, OptsAcc,
-                            ArgVals ++ [ArgVal], Env, CmdStack);
+                    ret_opt(Opt, CmdLine1, OptsAcc, ArgVals ++ [ArgVal], Env, CmdStack);
                 Else ->
                     Else
             end;
         #{args := ArgSpecs} ->
-            case parse_args(ArgSpecs, CmdLine0, true, false,
-                            {opt, Style, Opt}, Env) of
+            case parse_args(ArgSpecs, CmdLine0, true, false, {opt, Style, Opt}, Env) of
                 {ok, CmdLine1, ResultArgs} when not Multiple ->
                     ret_opt(Opt, CmdLine1, OptsAcc, ResultArgs, Env, CmdStack);
                 {ok, CmdLine1, ResultArgs} ->
                     ResultArgsL = maps:get(Name, OptsAcc, []),
-                    ret_opt(Opt, CmdLine1, OptsAcc,
-                            ResultArgsL ++ [ResultArgs], Env, CmdStack);
+                    ret_opt(Opt, CmdLine1, OptsAcc, ResultArgsL ++ [ResultArgs], Env, CmdStack);
                 Else ->
                     Else
             end
@@ -1129,36 +1159,34 @@ ret_opt(#{name := Name} = Opt, CmdLine, OptsAcc0, NewVal, Env, CmdStack) ->
             {ok, CmdLine, OptsAcc1}
     end.
 
-
-
 parse_args(ArgSpecs, CmdLine, StopOnOpt, OptsDone, From, Env) ->
     parse_args(ArgSpecs, CmdLine, StopOnOpt, OptsDone, From, Env, #{}).
 
-parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, OptsDone,
-           From, Env, Acc) ->
+parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, OptsDone, From, Env, Acc) ->
     Type = maps:get(type, H, string),
     NArgs = maps:get(nargs, H, 1),
-    if is_integer(NArgs) orelse
-       ((NArgs == '+' orelse NArgs == '*') andalso CmdLine0 =/= []) ->
+    if
+        is_integer(NArgs) orelse
+            ((NArgs == '+' orelse NArgs == '*') andalso CmdLine0 =/= []) ->
             case consume_args(CmdLine0, Type, NArgs) of
                 {ok, CmdLine1, [ArgVal]} when NArgs == 1 ->
-                    parse_args(T, CmdLine1, StopOnOpt, true,
-                               From, Env, Acc#{Name => ArgVal});
+                    parse_args(T, CmdLine1, StopOnOpt, true, From, Env, Acc#{Name => ArgVal});
                 {ok, CmdLine1, ArgVals} ->
-                    parse_args(T, CmdLine1, StopOnOpt, true,
-                               From, Env, Acc#{Name => ArgVals});
+                    parse_args(T, CmdLine1, StopOnOpt, true, From, Env, Acc#{Name => ArgVals});
                 {error, {Tag, Details}} ->
-                    IsOpt = case From of
-                                {opt, _, _} -> true;
-                                _ -> false
-                            end,
+                    IsOpt =
+                        case From of
+                            {opt, _, _} -> true;
+                            _ -> false
+                        end,
                     CompWord = get_comp_word(Env),
                     case is_completion(Env) of
-                        true when Tag == missing_args
-                                  andalso not IsOpt
-                                  andalso not OptsDone
-                                  andalso (CompWord == undefined
-                                           orelse hd(CompWord) == $-)->
+                        true when
+                            Tag == missing_args andalso
+                                not IsOpt andalso
+                                not OptsDone andalso
+                                (CompWord == undefined orelse hd(CompWord) == $-)
+                        ->
                             %% If we're not done w/ options and user either
                             %% hasn't written anything, or has started to write
                             %% an option, we end up here and will suggest
@@ -1171,31 +1199,27 @@ parse_args([#{name := Name} = H | T], CmdLine0, StopOnOpt, OptsDone,
                                     %% for commands, we print the arg
                                     %% in the error
                                     MV = arg_metavar_env(H, Env),
-                                    {error, {Tag, {arg, MV, CmdStr, H},
-                                             Details}};
+                                    {error, {Tag, {arg, MV, CmdStr, H}, Details}};
                                 _ ->
                                     {error, {Tag, From, Details}}
                             end
                     end
             end;
-       (NArgs == '?' orelse NArgs == '*') andalso CmdLine0 =:= [] ->
+        (NArgs == '?' orelse NArgs == '*') andalso CmdLine0 =:= [] ->
             Val = maps:get(default, H, undefined),
-            parse_args(T, CmdLine0, StopOnOpt, OptsDone,
-                       From, Env, Acc#{Name => Val});
-       NArgs == '?' ->
+            parse_args(T, CmdLine0, StopOnOpt, OptsDone, From, Env, Acc#{Name => Val});
+        NArgs == '?' ->
             [Str | CmdLine1] = CmdLine0,
             case match_arg(Str, Type, StopOnOpt) of
                 {ok, ArgVal} ->
-                    parse_args(T, CmdLine1, StopOnOpt, true,
-                               From, Env, Acc#{Name => ArgVal});
+                    parse_args(T, CmdLine1, StopOnOpt, true, From, Env, Acc#{Name => ArgVal});
                 nomatch ->
                     Val = maps:get(default, H, undefined),
-                    parse_args(T, CmdLine0, StopOnOpt, OptsDone,
-                               From, Env, Acc#{Name => Val});
+                    parse_args(T, CmdLine0, StopOnOpt, OptsDone, From, Env, Acc#{Name => Val});
                 Error ->
                     Error
             end;
-       NArgs == '+' andalso CmdLine0 == [] ->
+        NArgs == '+' andalso CmdLine0 == [] ->
             case is_completion(Env) of
                 false ->
                     {error, {expected_arg, From}};
@@ -1207,9 +1231,11 @@ parse_args([], CmdLine, _, _, _, _, Acc) ->
     {ok, CmdLine, Acc}.
 
 consume_args(Args, Type, NArgs) ->
-    N = if is_integer(NArgs) ->
+    N =
+        if
+            is_integer(NArgs) ->
                 NArgs;
-           true ->
+            true ->
                 -1
         end,
     do_consume_args(Args, Type, N, []).
@@ -1221,7 +1247,7 @@ do_consume_args(CmdLine, _, 0, Acc) ->
 do_consume_args([H | T], Type, N, Acc) ->
     case match_arg(H, Type, false) of
         {ok, ArgVal} ->
-            do_consume_args(T, Type, N-1, [ArgVal | Acc]);
+            do_consume_args(T, Type, N - 1, [ArgVal | Acc]);
         Error ->
             Error
     end;
@@ -1247,11 +1273,14 @@ match_arg(Arg, Type, _) ->
                 {ok, Arg};
             {string, Regexps} ->
                 true = lists:all(
-                         fun(Re) -> case re:run(Arg, Re) of
-                                        {match, _} -> true;
-                                        _ -> false
-                                    end
-                         end, Regexps),
+                    fun(Re) ->
+                        case re:run(Arg, Re) of
+                            {match, _} -> true;
+                            _ -> false
+                        end
+                    end,
+                    Regexps
+                ),
                 {ok, Arg};
             {enum, Enums} ->
                 ArgAtom = list_to_existing_atom(Arg),
@@ -1295,13 +1324,13 @@ to_float(Str) ->
 
 chk_ranges([Val | _], Val) ->
     ok;
-chk_ranges([{Min, Max} | _], Val)
-  when (Min == unbounded orelse Min =< Val) andalso
-       (Max == unbounded orelse Val =< Max) ->
+chk_ranges([{Min, Max} | _], Val) when
+    (Min == unbounded orelse Min =< Val) andalso
+        (Max == unbounded orelse Val =< Max)
+->
     ok;
 chk_ranges([_ | T], Val) ->
     chk_ranges(T, Val).
-
 
 %%% Help formatting
 
@@ -1323,38 +1352,49 @@ print_help(Fd, Env, CmdStack) ->
             _ ->
                 79
         end,
-    Col = ceil(Width / 2.8), % carefully selected to get 29 when Width is 79
+    %% carefully selected to get 29 when Width is 79
+    Col = ceil(Width / 2.8),
     io:put_chars(Fd, fmt_help(Env, CmdStack, {Width, Col})).
 
 %% @fmt_help/2
 -spec fmt_help(Env :: parse_env(), CmdStack :: cmd_stack()) ->
-          unicode:chardata().
+    unicode:chardata().
 %% Equivalent to `fmt_help(Env, CmdStack, {79, 29})`.
 fmt_help(Env, CmdStack) ->
     fmt_help(Env, CmdStack, {79, 29}).
 
 %% @fmt_help/3
--spec fmt_help(parse_env(),
-               cmd_stack(),
-               Sz :: {Width :: integer(), Col :: integer()}) ->
-          unicode:chardata().
+-spec fmt_help(
+    parse_env(),
+    cmd_stack(),
+    Sz :: {Width :: integer(), Col :: integer()}
+) ->
+    unicode:chardata().
 %% Formats the help text with the given `Width` and help text starting
 %% at column `Col`.
 fmt_help({Cmd, ParseOpts}, CmdStack, Sz) ->
     MStyle = maps:get(metavar_style, ParseOpts, caps),
     Sections =
-        [fmt_usage(Cmd, CmdStack, MStyle),
-         fmt_cmd_help(Cmd, Sz),
-         fmt_opts(Cmd, MStyle, Sz),
-         fmt_cmds(Cmd, Sz)],
+        [
+            fmt_usage(Cmd, CmdStack, MStyle),
+            fmt_cmd_help(Cmd, Sz),
+            fmt_opts(Cmd, MStyle, Sz),
+            fmt_cmds(Cmd, Sz)
+        ],
     lists:join(?nl, [S || S <- Sections, S /= ""]).
 
 fmt_usage(#{cmd := CmdStr0} = Cmd, CmdStack, MStyle) ->
     CmdStr =
-        lists:join($\s,
-                   lists:foldl(fun({#{cmd := CmdStr1}, _}, Acc) ->
-                                       [CmdStr1 | Acc]
-                               end, [CmdStr0], CmdStack)),
+        lists:join(
+            $\s,
+            lists:foldl(
+                fun({#{cmd := CmdStr1}, _}, Acc) ->
+                    [CmdStr1 | Acc]
+                end,
+                [CmdStr0],
+                CmdStack
+            )
+        ),
     OptionsStr =
         case maps:get(opts, Cmd, []) of
             [] ->
@@ -1369,22 +1409,23 @@ fmt_usage(#{cmd := CmdStr0} = Cmd, CmdStack, MStyle) ->
         #{cmds := _} ->
             SubCmdStr = fmt_metavar("command", MStyle),
             SubCmdArgs = fmt_metavar("args", MStyle),
-            ["Usage: ", CmdStr, OptionsStr, " ",
-             SubCmdStr, " [", SubCmdArgs, "]", ?nl];
+            ["Usage: ", CmdStr, OptionsStr, " ", SubCmdStr, " [", SubCmdArgs, "]", ?nl];
         _ ->
             ["Usage: ", CmdStr, OptionsStr, ?nl]
     end.
 
 fmt_error_usage(#{cmd := CmdStr} = Cmd, CmdStack, ParseOpts) ->
     MStyle = maps:get(metavar_style, ParseOpts, caps),
-    [fmt_usage(Cmd, CmdStack, MStyle),
-     case maps:get(default_help_opt, ParseOpts, true) of
-         true ->
-             ["Try '", CmdStr, " --help' for more information."];
-         false ->
-             []
-     end,
-     ?nl].
+    [
+        fmt_usage(Cmd, CmdStack, MStyle),
+        case maps:get(default_help_opt, ParseOpts, true) of
+            true ->
+                ["Try '", CmdStr, " --help' for more information."];
+            false ->
+                []
+        end,
+        ?nl
+    ].
 
 fmt_cmd_help(#{help := {doc, Doc}}, {W, _C}) ->
     fmt_doc(Doc, W, 2);
@@ -1395,34 +1436,51 @@ fmt_cmd_help(_, _) ->
     "".
 
 fmt_doc([{p, Text} | T], W, C) ->
-    [prettypr:format(prettypr:nest(C, prettypr:text_par(Text)), W, W), ?nl,
-     break(T) |
-     fmt_doc(T, W, C)];
+    [
+        prettypr:format(prettypr:nest(C, prettypr:text_par(Text)), W, W),
+        ?nl,
+        break(T)
+        | fmt_doc(T, W, C)
+    ];
 fmt_doc([{ul, Text, Items} | T], W, C) ->
     TC = C + 4,
-    [prettypr:format(prettypr:nest(C, prettypr:text_par(Text)), W, W), ?nl,
-     [fmt_list_item([sp(C+2), "o"], ItemText, W-TC, TC) || ItemText <- Items],
-     break(T) |
-     fmt_doc(T, W, C)];
+    [
+        prettypr:format(prettypr:nest(C, prettypr:text_par(Text)), W, W),
+        ?nl,
+        [fmt_list_item([sp(C + 2), "o"], ItemText, W - TC, TC) || ItemText <- Items],
+        break(T)
+        | fmt_doc(T, W, C)
+    ];
 fmt_doc([{dl, Text, Items} | T], W, C) ->
-     MaxDefL = 8 + lists:max([length(Def) || {Def, _} <- Items]),
-     TC = if MaxDefL >= W -> 8;
+    MaxDefL = 8 + lists:max([length(Def) || {Def, _} <- Items]),
+    TC =
+        if
+            MaxDefL >= W -> 8;
             true -> MaxDefL
-         end,
-    [prettypr:format(prettypr:nest(2, prettypr:text_par(Text)), W, W), ?nl,
-     [fmt_list_item(["    ", Def], ItemText, W-TC, TC) ||
-         {Def, ItemText} <- Items],
-     break(T) |
-     fmt_doc(T, W, C)];
+        end,
+    [
+        prettypr:format(prettypr:nest(2, prettypr:text_par(Text)), W, W),
+        ?nl,
+        [
+            fmt_list_item(["    ", Def], ItemText, W - TC, TC)
+         || {Def, ItemText} <- Items
+        ],
+        break(T)
+        | fmt_doc(T, W, C)
+    ];
 fmt_doc([{pre, Text} | T], W, C) ->
     Lines = split_lines(Text),
-    [[[sp(C), Line, ?nl] || Line <- Lines],
-     break(T) |
-     fmt_doc(T, W, C)];
+    [
+        [[sp(C), Line, ?nl] || Line <- Lines],
+        break(T)
+        | fmt_doc(T, W, C)
+    ];
 fmt_doc([{doc, Doc} | T], W, C) ->
-    [fmt_doc(Doc, W, C+2),
-     break(T) |
-     fmt_doc(T, W, C)];
+    [
+        fmt_doc(Doc, W, C + 2),
+        break(T)
+        | fmt_doc(T, W, C)
+    ];
 fmt_doc([], _, _) ->
     [].
 
@@ -1439,35 +1497,44 @@ fmt_opts(_, _, _) ->
     "".
 
 fmt_opts_section({Header, Opts}, MStyle, Sz) ->
-    [if Header /= [] -> [Header, $:];
-        true -> ""
-     end, ?nl,
-     [fmt_opt(Opt, MStyle, Sz) || Opt <- flatten_opts(Opts),
-                                  maps:get(help, Opt, "") /= hidden]].
+    [
+        if
+            Header /= [] -> [Header, $:];
+            true -> ""
+        end,
+        ?nl,
+        [
+            fmt_opt(Opt, MStyle, Sz)
+         || Opt <- flatten_opts(Opts),
+            maps:get(help, Opt, "") /= hidden
+        ]
+    ].
 
 fmt_opt(Opt, MStyle, Sz) ->
     OptStr =
         case
-            {maps:get(short, Opt, undef),
-             maps:get(long, Opt, undef),
-             maps:get(type, Opt, undef)} of
+            {maps:get(short, Opt, undef), maps:get(long, Opt, undef), maps:get(type, Opt, undef)}
+        of
             {Ch, undef, _} ->
                 [$-, Ch, $\s, $\s];
             {undef, Long, Type} ->
                 "    --" ++ Long ++
-                    if Type == boolean -> " / --no-" ++ Long;
-                       true -> ""
+                    if
+                        Type == boolean -> " / --no-" ++ Long;
+                        true -> ""
                     end;
             {Ch, Long, Type} ->
                 [$-, Ch, $,, $\s] ++ "--" ++ Long ++
-                    if Type == boolean -> " / --no-" ++ Long;
-                       true -> ""
+                    if
+                        Type == boolean -> " / --no-" ++ Long;
+                        true -> ""
                     end
         end,
-    MetavarStr = case fmt_opt_metavar(Opt, MStyle) of
-                     "" -> "";
-                     M -> lists:flatten([$\s | M])
-                 end,
+    MetavarStr =
+        case fmt_opt_metavar(Opt, MStyle) of
+            "" -> "";
+            M -> lists:flatten([$\s | M])
+        end,
     Pre = "  " ++ OptStr ++ MetavarStr,
     case Opt of
         #{help := HelpStr} ->
@@ -1484,10 +1551,11 @@ fmt_opt_metavar(Opt, MStyle) ->
         #{args := Args} ->
             fmt_args_metavars(Args, MStyle);
         #{name := Name, type := Arg0} when is_map(Arg0) ->
-            Arg1 = case maps:is_key(name, Arg0) of
-                       true -> Arg0;
-                       false -> Arg0#{name => Name}
-                   end,
+            Arg1 =
+                case maps:is_key(name, Arg0) of
+                    true -> Arg0;
+                    false -> Arg0#{name => Name}
+                end,
             fmt_arg_metavar(Arg1, MStyle);
         #{metavar := MVar} ->
             MVar;
@@ -1504,7 +1572,7 @@ fmt_arg_metavar(A, MStyle) ->
         '?' -> [$[, MVar, $]];
         '*' -> [$[, MVar, $], "..."];
         '+' -> [MVar, "..."];
-        N   -> lists:join(" ", lists:duplicate(N, MVar))
+        N -> lists:join(" ", lists:duplicate(N, MVar))
     end.
 
 arg_metavar(#{metavar := MVar}, _MStyle) ->
@@ -1526,11 +1594,12 @@ fmt_cmds(#{cmds := Cmds}, Sz) when Cmds /= [] ->
     {W, MaxC} = Sz,
     MinC = 16,
     C =
-        if SuggestedC > MaxC ->
+        if
+            SuggestedC > MaxC ->
                 MaxC;
-           SuggestedC < MinC ->
+            SuggestedC < MinC ->
                 MinC;
-           true ->
+            true ->
                 SuggestedC
         end,
     lists:join(?nl, [fmt_cmds_section(S, W, C) || S <- CmdsSections]);
@@ -1548,10 +1617,14 @@ max_cmd_len0([], Max) ->
     Max.
 
 fmt_cmds_section({Header, Cmds}, W, C) ->
-    [if Header /= [] -> [Header, $:];
-        true -> ""
-     end, ?nl,
-     [fmt_cmd(Cmd, W, C) || Cmd <- Cmds]].
+    [
+        if
+            Header /= [] -> [Header, $:];
+            true -> ""
+        end,
+        ?nl,
+        [fmt_cmd(Cmd, W, C) || Cmd <- Cmds]
+    ].
 
 fmt_cmd(#{cmd := CmdStr} = Cmd, W, C) ->
     Pre = "  " ++ CmdStr,
@@ -1572,20 +1645,31 @@ fmt_cmd(#{cmd := CmdStr} = Cmd, W, C) ->
     end.
 
 fmt_list_item(Pre, Str, W, C) ->
-    [FirstL | RestLs] = Ls =
+    [FirstL | RestLs] =
+        Ls =
         split_lines(
-          prettypr:format(prettypr:text_par(Str), W-C, W-C)),
+            prettypr:format(prettypr:text_par(Str), W - C, W - C)
+        ),
     PreLen = string:length(Pre),
-    if PreLen < C ->
-            [string:pad(Pre, C), FirstL, ?nl |
-             [[sp(C), L, ?nl] || L <- RestLs]];
-       PreLen < W ->
-            [Pre, ?nl,
-             [[sp(C), L, ?nl] || L <- Ls]];
-       true ->
-            [prettypr:format(prettypr:text_par(Pre), W, W),
-             ?nl,
-             [[sp(C), L, ?nl] || L <- Ls]]
+    if
+        PreLen < C ->
+            [
+                [string:pad(Pre, C), FirstL],
+                ?nl
+                | [[sp(C), L, ?nl] || L <- RestLs]
+            ];
+        PreLen < W ->
+            [
+                Pre,
+                ?nl,
+                [[sp(C), L, ?nl] || L <- Ls]
+            ];
+        true ->
+            [
+                prettypr:format(prettypr:text_par(Pre), W, W),
+                ?nl,
+                [[sp(C), L, ?nl] || L <- Ls]
+            ]
     end.
 
 fmt_metavar(Word, caps) ->
@@ -1599,15 +1683,17 @@ str_to_name(Str) ->
 mk_sections([], _) ->
     [];
 mk_sections([{group, H, Items} | T], _) ->
-    [{H, flatten_opts(Items)} |
-     mk_sections(T, "")];
+    [{H, flatten_opts(Items)} | mk_sections(T, "")];
 mk_sections(Items, Header) ->
     {ItemsInSection, Rest} =
-        lists:splitwith(fun({group, _, _}) -> false;
-                           (_) -> true
-                        end, Items),
-    [{Header, ItemsInSection} |
-     mk_sections(Rest, "")].
+        lists:splitwith(
+            fun
+                ({group, _, _}) -> false;
+                (_) -> true
+            end,
+            Items
+        ),
+    [{Header, ItemsInSection} | mk_sections(Rest, "")].
 
 first_sentence([$., C | _]) when C =:= $\s; C =:= $\n ->
     [];
@@ -1661,7 +1747,6 @@ fmt_from({opt, long, #{long := Str}}) ->
 fmt_from({arg, MetaVar, CmdStr, _}) ->
     ["argument ", MetaVar, " to command ", CmdStr].
 
-
 %%% Completion
 
 is_completion(Env) ->
@@ -1676,7 +1761,7 @@ get_comp_word(Env) ->
     case Env of
         {_, #{'_comp_word' := CompWord}} ->
             CompWord;
-         _ ->
+        _ ->
             false
     end.
 
@@ -1691,7 +1776,7 @@ return_completion(Res, ParseOpts) ->
         {error, {missing_args, {arg, _, _, #{type := Type}}, _}} ->
             print_type_suggestions(Type, ParseOpts),
             halt(0);
-        _  ->
+        _ ->
             halt(1)
     end.
 
@@ -1710,25 +1795,30 @@ print_type_suggestions(Type, ParseOpts) ->
 print_suggestions({{Cmd, ParseOpts}, _CmdStack, ResultOpts, _ResultArgs}) ->
     AllSuggestions =
         lists:sort(suggested_subcommands(maps:get(cmds, Cmd, []))) ++
-        lists:sort(suggested_options(maps:get(opts, Cmd, []), ResultOpts)),
+            lists:sort(suggested_options(maps:get(opts, Cmd, []), ResultOpts)),
     do_print_suggestions(AllSuggestions, ParseOpts).
-
 
 do_print_suggestions(AllSuggestions, ParseOpts) ->
     #{'_comp_word' := CompWord} = ParseOpts,
     Suggestions =
-        if CompWord == undefined ->
+        if
+            CompWord == undefined ->
                 %% this means that the user hit <tab> after a space
                 AllSuggestions;
-           true ->
+            true ->
                 %% this means that the user hit <tab> right after CompWord
-                [S || S <- AllSuggestions,
-                      lists:prefix(CompWord, S)]
+                [
+                    S
+                 || S <- AllSuggestions,
+                    lists:prefix(CompWord, S)
+                ]
         end,
     lists:foreach(
-      fun(S) ->
-              io:put_chars([S, "\n"])
-      end, Suggestions).
+        fun(S) ->
+            io:put_chars([S, "\n"])
+        end,
+        Suggestions
+    ).
 
 suggested_options([#{multiple := true} = Opt | T], ResultOpts) ->
     suggest_opt(Opt, T, ResultOpts);
@@ -1747,15 +1837,22 @@ suggested_options([], _) ->
 suggest_opt(Opt, T, ResultOpts) ->
     case Opt of
         #{short := Ch, long := Long, type := boolean} ->
-            [[$-, Ch], [$-, $- | Long], [$-, $-, $n, $o, $- | Long] |
-             suggested_options(T, ResultOpts)];
+            [
+                [$-, Ch],
+                [$-, $- | Long],
+                [$-, $-, $n, $o, $- | Long]
+                | suggested_options(T, ResultOpts)
+            ];
         #{short := Ch, long := Long} ->
             [[$-, Ch], [$-, $- | Long] | suggested_options(T, ResultOpts)];
         #{short := Ch} ->
             [[$-, Ch] | suggested_options(T, ResultOpts)];
         #{long := Long, type := boolean} ->
-            [[$-, $- | Long], [$-, $-, $n, $o, $- | Long] |
-             suggested_options(T, ResultOpts)];
+            [
+                [$-, $- | Long],
+                [$-, $-, $n, $o, $- | Long]
+                | suggested_options(T, ResultOpts)
+            ];
         #{long := Long} ->
             [[$-, $- | Long] | suggested_options(T, ResultOpts)]
     end.
@@ -1769,37 +1866,41 @@ suggested_subcommands([]) ->
 
 print_completion_script(Cmd, bash) ->
     AbsName = filename:absname(hd(init:get_plain_arguments())),
-    io:format("_~s() {\n"
-              "  COMPREPLY=($(COMP_CWORD="
-              "${COMP_CWORD} ~s \"${COMP_WORDS[@]}\"))\n"
-              "  if [ \"${COMPREPLY[0]}\" == \"__DIR__\" ]; then\n"
-              "    compopt +o nosort -o dirnames\n"
-              "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
-              "  elif [ \"${COMPREPLY[0]}\" == \"__FILE__\" ]; then\n"
-              "    compopt +o nosort -o default\n"
-              "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
-              "  fi\n"
-              "  return 0\n"
-              "}\n"
-              "\n"
-              "complete -o nosort -F _~s ~s\n",
-              [Cmd, AbsName, Cmd, Cmd]);
+    io:format(
+        "_~s() {\n"
+        "  COMPREPLY=($(COMP_CWORD="
+        "${COMP_CWORD} ~s \"${COMP_WORDS[@]}\"))\n"
+        "  if [ \"${COMPREPLY[0]}\" == \"__DIR__\" ]; then\n"
+        "    compopt +o nosort -o dirnames\n"
+        "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
+        "  elif [ \"${COMPREPLY[0]}\" == \"__FILE__\" ]; then\n"
+        "    compopt +o nosort -o default\n"
+        "    COMPREPLY=(\"${COMPREPLY[@]:1}\")\n"
+        "  fi\n"
+        "  return 0\n"
+        "}\n"
+        "\n"
+        "complete -o nosort -F _~s ~s\n",
+        [Cmd, AbsName, Cmd, Cmd]
+    );
 print_completion_script(Cmd, zsh) ->
     AbsName = filename:absname(hd(init:get_plain_arguments())),
-    io:format("_~s() {\n"
-              "  sugg=(\"${(@f)$(COMP_CWORD=$((${CURRENT}-1)) ~s $words)}\")\n"
-              "  if [ \"${sugg[1]}\" = \"__DIR__\" ]; then\n"
-              "    _path_files -/\n"
-              "  elif [ \"${sugg[1]}\" = \"__FILE__\" ]; then\n"
-              "    _path_files -f\n"
-              "  else\n"
-              "    compadd -V unsorted -a sugg\n"
-              "  fi\n"
-              "  return 0\n"
-              "}\n"
-              "\n"
-              "compdef _~s ~s\n",
-              [Cmd, AbsName, Cmd, Cmd]);
+    io:format(
+        "_~s() {\n"
+        "  sugg=(\"${(@f)$(COMP_CWORD=$((${CURRENT}-1)) ~s $words)}\")\n"
+        "  if [ \"${sugg[1]}\" = \"__DIR__\" ]; then\n"
+        "    _path_files -/\n"
+        "  elif [ \"${sugg[1]}\" = \"__FILE__\" ]; then\n"
+        "    _path_files -f\n"
+        "  else\n"
+        "    compadd -V unsorted -a sugg\n"
+        "  fi\n"
+        "  return 0\n"
+        "}\n"
+        "\n"
+        "compdef _~s ~s\n",
+        [Cmd, AbsName, Cmd, Cmd]
+    );
 print_completion_script(_, _) ->
     io:put_chars("Unknown shell - cannot generate completion script\n"),
     halt(1).
