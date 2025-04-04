@@ -5,7 +5,7 @@ dep_erl_md = git https://github.com/mbj4668/erl_md
 include erl.mk
 
 erl.mk:
-	curl -O https://raw.githubusercontent.com/mbj4668/erl.mk/main/$@
+	curl -s -O https://raw.githubusercontent.com/mbj4668/erl.mk/main/$@
 
 all: doc/eclip.md
 
